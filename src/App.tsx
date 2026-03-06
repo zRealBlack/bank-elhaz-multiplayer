@@ -970,6 +970,17 @@ export default function App() {
     );
   }
 
+  if (isJoined && !room) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-matte-blue-deep to-matte-black text-white flex items-center justify-center font-sans">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-16 h-16 border-4 border-white/20 border-t-matte-blue-light rounded-full animate-spin" />
+          <h2 className="text-2xl font-bold tracking-widest text-matte-blue-light animate-pulse uppercase">Connecting to Server...</h2>
+        </div>
+      </div>
+    );
+  }
+
   if (room?.gameState === "GAME_OVER") {
     const winner = room.players.find(p => !p.isBankrupt);
     return (
