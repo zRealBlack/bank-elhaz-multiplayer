@@ -37,6 +37,8 @@ import { BOARD_DATA, COLORS, EGYPTIAN_ARABIC, ENGLISH, ENGLISH_BOARD_DATA, PLAYE
 import { Dice } from "./components/Dice";
 import { PlayerToken } from "./components/PlayerToken";
 import { PropertyModal } from "./components/PropertyModal";
+import { AccountModal } from "./components/AccountModal";
+import { ShopModal } from "./components/ShopModal";
 
 type GameState = "LOBBY" | "PLAYING" | "GAME_OVER";
 
@@ -112,7 +114,8 @@ export default function App() {
   const [activeInput, setActiveInput] = useState<"PLAY" | "ROOMS" | null>(null);
   const [showShop, setShowShop] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
-  const [playerCoins, setPlayerCoins] = useState(5000); // Mock currency
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userToken, setUserToken] = useState<string | null>(null);
 
   const [chatMessage, setChatMessage] = useState("");
   const [chats, setChats] = useState<{ sender: string; color: string; message: string }[]>([]);
@@ -757,7 +760,7 @@ export default function App() {
     const bestRoom = activeRooms.sort((a, b) => b.playersCount - a.playersCount)[0];
     const targetRoomId = bestRoom ? bestRoom.id : Math.random().toString(36).substring(2, 8).toUpperCase();
     if (socket) {
-      socket.emit("join_room", { roomId: targetRoomId, playerName });
+      socket.emit("join_room", { roomId: targetRoomId, playerName, authId: userProfile?.id });
       setIsJoined(true);
     }
   };
@@ -793,7 +796,7 @@ export default function App() {
                 <button
                   onClick={() => {
                     const newId = Math.random().toString(36).substring(2, 8).toUpperCase();
-                    socket?.emit("join_room", { roomId: newId, playerName });
+                    socket?.emit("join_room", { roomId: newId, playerName, authId: userProfile?.id });
                     setIsJoined(true);
                   }}
                   className="px-8 py-3 rounded-full bg-matte-blue-mid text-white font-bold hover:shadow-[0_0_20px_rgba(135,206,235,0.4)] transition-all hover:-translate-y-1 border border-matte-blue-light/50"
@@ -833,7 +836,7 @@ export default function App() {
                       </div>
                       <button
                         onClick={() => {
-                          socket?.emit("join_room", { roomId: r.id, playerName });
+                          socket?.emit("join_room", { roomId: r.id, playerName, authId: userProfile?.id });
                           setIsJoined(true);
                         }}
                         className="w-full py-3 rounded-xl bg-matte-blue-light/10 border border-matte-blue-light/20 hover:bg-matte-blue-light hover:text-matte-blue-deep font-bold transition-all mt-auto"
@@ -867,7 +870,7 @@ export default function App() {
           <div className="flex items-center gap-3">
             <div className="bg-matte-blue-deep/60 backdrop-blur-md border border-white/10 px-5 py-2.5 rounded-full flex items-center gap-3 shadow-[0_0_15px_rgba(0,0,0,0.5)]">
               <Coins className="text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.8)]" size={18} />
-              <span className="font-mono font-black text-white text-lg tracking-wide">{playerCoins.toLocaleString()}</span>
+              <span className="font-mono font-black text-white text-lg tracking-wide">{userProfile?.coins || 0}</span>
             </div>
             <button onClick={() => setShowShop(true)} className="w-12 h-12 rounded-full bg-matte-blue-deep/60 backdrop-blur-md border border-white/10 flex items-center justify-center hover:bg-white/10 hover:scale-110 transition-all group shadow-lg">
               <Store className="text-white group-hover:text-matte-blue-light transition-colors" size={20} />
@@ -942,30 +945,21 @@ export default function App() {
           </div>
         </div>
 
-        {/* Temporary modals placeholders for Shop/Account */}
-        <AnimatePresence>
-          {showShop && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-[#1a1c24] border border-white/10 p-8 rounded-3xl max-w-md w-full text-center relative">
-                <button onClick={() => setShowShop(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white"><X /></button>
-                <Store size={48} className="text-purple-400 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold mb-2">Item Shop</h2>
-                <p className="text-gray-400 mb-6">Coming soon! Buy new skins and emojis here.</p>
-              </div>
-            </motion.div>
-          )}
-          {showAccount && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-[#1a1c24] border border-white/10 p-8 rounded-3xl max-w-md w-full text-center relative">
-                <button onClick={() => setShowAccount(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white"><X /></button>
-                <User size={48} className="text-blue-400 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold mb-2">Account</h2>
-                <p className="text-gray-400 mb-6">Sign in to save your coins and skins across devices.</p>
-                <button className="w-full py-3 bg-blue-500 rounded-xl font-bold hover:bg-blue-400 transition-all">Connect Account</button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Modals for Shop/Account */}
+        <ShopModal
+          isOpen={showShop}
+          onClose={() => setShowShop(false)}
+          userProfile={userProfile}
+          userToken={userToken}
+          setUserProfile={setUserProfile}
+        />
+        <AccountModal
+          isOpen={showAccount}
+          onClose={() => setShowAccount(false)}
+          userProfile={userProfile}
+          setUserProfile={setUserProfile}
+          setUserToken={setUserToken}
+        />
       </div>
     );
   }

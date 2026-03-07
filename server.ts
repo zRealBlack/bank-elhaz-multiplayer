@@ -4,9 +4,86 @@ import { Server } from "socket.io";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { BOARD_DATA, PLAYER_COLORS, PLAYER_CHARACTERS, EGYPTIAN_NAMES } from "./src/constants";
+import { PrismaClient } from "@prisma/client";
+import { OAuth2Client } from "google-auth-library";
+
+const prisma = new PrismaClient();
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 async function startServer() {
   const app = express();
+  app.use(express.json()); // For POST body parsing
+
+  app.post("/api/auth/google", async (req, res) => {
+    try {
+      const { token } = req.body;
+      const ticket = await googleClient.verifyIdToken({
+        idToken: token,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      const payload = ticket.getPayload();
+
+      if (!payload || !payload.sub) {
+        return res.status(400).json({ error: "Invalid token" });
+      }
+
+      const user = await prisma.user.upsert({
+        where: { id: payload.sub },
+        update: {
+          name: payload.name || "Unknown",
+          picture: payload.picture || null,
+        },
+        create: {
+          id: payload.sub,
+          email: payload.email || "",
+          name: payload.name || "Unknown",
+          picture: payload.picture || null,
+          coins: 0,
+        },
+        include: { unlocks: true }
+      });
+
+      res.json({ user });
+    } catch (error) {
+      console.error("Auth error:", error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  app.post("/api/shop/buy", async (req, res) => {
+    try {
+      const { token, itemId, price } = req.body;
+      const ticket = await googleClient.verifyIdToken({ idToken: token, audience: process.env.GOOGLE_CLIENT_ID });
+      const payload = ticket.getPayload();
+      if (!payload || !payload.sub) return res.status(400).json({ error: "Invalid token" });
+
+      const user = await prisma.user.findUnique({ where: { id: payload.sub }, include: { unlocks: true } });
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      if (user.unlocks.some(u => u.itemId === itemId)) {
+        return res.status(400).json({ error: "Already owned" });
+      }
+
+      if (user.coins < price) {
+        return res.status(400).json({ error: "Not enough coins" });
+      }
+
+      const updatedUser = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          coins: user.coins - price,
+          unlocks: { create: { itemId } }
+        },
+        include: { unlocks: true }
+      });
+
+      res.json({ user: updatedUser });
+    } catch (error) {
+      console.error("Shop error:", error);
+      res.status(500).json({ error: "Purchase failed" });
+    }
+  });
+
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
     cors: {
@@ -34,7 +111,7 @@ async function startServer() {
       socket.emit("rooms_list", activeRooms);
     });
 
-    socket.on("join_room", ({ roomId, playerName, color, character }) => {
+    socket.on("join_room", ({ roomId, playerName, color, character, authId }) => {
       socket.join(roomId);
 
       if (!rooms.has(roomId)) {
@@ -92,6 +169,7 @@ async function startServer() {
 
       const newPlayer = {
         id: socket.id,
+        authId: authId || null,
         name: finalName,
         color: color || PLAYER_COLORS.find(c => !room.players.some((p: any) => p.color === c)) || PLAYER_COLORS[0],
         character: character || PLAYER_CHARACTERS.find(c => !room.players.some((p: any) => p.character === c)) || PLAYER_CHARACTERS[0],
@@ -719,6 +797,15 @@ async function startServer() {
       if (activePlayers.length <= 1) {
         room.gameState = "GAME_OVER";
         room.history.push({ type: "game_over", winnerName: activePlayers[0]?.name || "محدش", playerId: activePlayers[0]?.id });
+
+        // Distribute Coins to Winner
+        const winner = activePlayers[0];
+        if (winner && winner.authId) {
+          prisma.user.update({
+            where: { id: winner.authId },
+            data: { coins: { increment: 100 } }
+          }).catch(err => console.error("Coin reward error:", err));
+        }
       }
 
       io.to(roomId).emit("room_update", room);
