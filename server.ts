@@ -6,8 +6,14 @@ import path from "path";
 import { BOARD_DATA, PLAYER_COLORS, PLAYER_CHARACTERS, EGYPTIAN_NAMES } from "./src/constants";
 import { PrismaClient } from "@prisma/client";
 import { OAuth2Client } from "google-auth-library";
+import { Pool } from "pg";
+import { PrismaPg } from "@prisma/adapter-pg";
 
-const prisma = new PrismaClient();
+const connectionString = process.env.DATABASE_URL;
+const pool = new Pool({ connectionString });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
+
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 async function startServer() {
