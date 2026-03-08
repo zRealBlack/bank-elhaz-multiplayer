@@ -241,6 +241,12 @@ export default function App() {
   }, [chats]);
 
   useEffect(() => {
+    if (userProfile && userProfile.name) {
+      setPlayerName(userProfile.name);
+    }
+  }, [userProfile]);
+
+  useEffect(() => {
     if (room && Object.keys(visualPositions).length === 0) {
       const initialPositions: Record<string, number> = {};
       room.players.forEach(p => {
