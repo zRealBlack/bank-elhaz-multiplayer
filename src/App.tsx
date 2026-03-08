@@ -965,6 +965,7 @@ export default function App() {
           userProfile={userProfile}
           setUserProfile={setUserProfile}
           setUserToken={setUserToken}
+          userToken={userToken}
         />
       </div>
     );

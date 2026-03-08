@@ -145,7 +145,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, userProfi
                                             )}
                                         </div>
                                     );
-                                })}
+                                })
                             )}
                         </div>
                     </div>
