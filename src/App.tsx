@@ -183,7 +183,11 @@ export default function App() {
 
       // Wait for dice animation (1.5s)
       await new Promise(resolve => setTimeout(resolve, 1500));
-      setIsRolling(false);
+      if ((window as any).finishRollingAndDraw) {
+        // Handled by the custom wrapper below if no jump
+      } else {
+        setIsRolling(false);
+      }
 
       const currentPlayer = updatedRoom.players.find((p: any) => p.id === player);
       if (!currentPlayer) return;
@@ -207,23 +211,42 @@ export default function App() {
       if (updatedRoom.history.length > 0) {
         setBattleLog(updatedRoom.history.slice(-5));
       }
+
+      if ((window as any).finishRollingAndDraw) {
+        (window as any).finishRollingAndDraw(false);
+      }
     });
 
     newSocket.on("new_chat", (chat) => {
       setChats(prev => [...prev, chat]);
     });
 
+    let pendingCardDraw: any = null;
+
     newSocket.on("card_drawn", (data) => {
-      setDrawnCard(data);
-      if (data.card.effect !== "swap_position" || data.playerId !== newSocket.id) {
-        setTimeout(() => setDrawnCard(null), 3000);
-      } else {
-        setTimeout(() => {
-          setDrawnCard(null);
-          setShowSwapSelection(true);
-        }, 3000);
-      }
+      pendingCardDraw = data;
     });
+
+    // We'll check for pendingCardDraw when isRolling becomes false.
+    // However, the cleanest way without refactoring hooks too much is a dedicated useEffect
+    // that watches `isRolling` and `pendingCardDraw`. Let's just use `setIsRolling` wrapper.
+    const _setIsRolling = setIsRolling;
+    const updateIsRolling = (val: boolean) => {
+      _setIsRolling(val);
+      if (!val && pendingCardDraw) {
+        setDrawnCard(pendingCardDraw);
+        if (pendingCardDraw.card.effect !== "swap_position" || pendingCardDraw.playerId !== newSocket.id) {
+          setTimeout(() => setDrawnCard(null), 3000);
+        } else {
+          setTimeout(() => {
+            setDrawnCard(null);
+            setShowSwapSelection(true);
+          }, 3000);
+        }
+        pendingCardDraw = null;
+      }
+    };
+    (window as any).finishRollingAndDraw = updateIsRolling;
 
     newSocket.on("auction_timer", ({ timer }) => {
       setRoom(prev => prev ? { ...prev, currentAuction: prev.currentAuction ? { ...prev.currentAuction, timer } : null } : null);
@@ -2102,7 +2125,25 @@ export default function App() {
                           className="leading-relaxed flex items-center justify-center gap-2"
                         >
                           {player && <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: player.color }} />}
-                          <span className="truncate">{formatLog(log)}</span>
+                          <span className="truncate">
+                            {formatLog(log)}
+                            {log.card && (
+                              <button
+                                onClick={() => {
+                                  setDrawnCard({ roomId: room?.id || "", card: log.card, playerId: log.playerId, type: log.card.effect === "add_money" || log.card.effect === "sub_money" || log.card.effect === "pay_all" || log.card.effect === "property_tax" ? (log.card.amount > 0 ? "TREASURE" : "SURPRISE") : "SURPRISE" });
+                                  setTimeout(() => setDrawnCard(null), 3000);
+                                }}
+                                className="ml-2 text-[9px] font-black text-white px-2 py-0.5 rounded backdrop-blur-sm transition-all hover:scale-110 active:scale-95 border uppercase tracking-widest"
+                                style={{
+                                  backgroundColor: log.type === "gain_money_card" ? "rgba(201, 168, 76, 0.2)" : "rgba(168, 85, 247, 0.2)",
+                                  borderColor: log.type === "gain_money_card" ? "#C9A84C" : "#A855F7",
+                                  color: log.type === "gain_money_card" ? "#C9A84C" : "#A855F7"
+                                }}
+                              >
+                                VIEW
+                              </button>
+                            )}
+                          </span>
                         </motion.div>
                       );
                     })}
