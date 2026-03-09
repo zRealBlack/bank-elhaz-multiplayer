@@ -19,7 +19,8 @@ export const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, use
     const handleLoginSuccess = async (credentialResponse: any) => {
         // We will send this credential to the backend to verify and get/create the user profile
         try {
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/auth/google`, {
+            const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+            const res = await fetch(`${backendUrl}/api/auth/google`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ token: credentialResponse.credential })
@@ -99,29 +100,46 @@ export const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, use
                                     <User size={64} className="text-blue-400 mx-auto mb-6" />
                                 )}
 
-                                {isEditingName ? (
-                                    <div className="flex items-center justify-center gap-2 mb-1">
-                                        <input
-                                            type="text"
-                                            value={newNameInput}
-                                            onChange={(e) => setNewNameInput(e.target.value)}
-                                            maxLength={15}
-                                            className="bg-black/50 border border-white/20 text-white rounded-lg px-3 py-1 text-center font-bold text-xl outline-none focus:border-blue-500 w-48"
-                                            autoFocus
-                                            onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
-                                        />
-                                        <button onClick={handleSaveName} disabled={isSaving} className="p-2 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500 hover:text-white transition-colors">
-                                            <Check size={18} />
+                                <div className="text-center mb-6">
+                                    <h2 className="text-2xl font-black">{userProfile.name}</h2>
+                                    <p className="text-matte-blue-light font-mono text-lg font-bold">{userProfile.coins} Coins</p>
+                                </div>
+
+                                <div className="space-y-3 mb-6 text-left">
+                                    <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col gap-2">
+                                        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">Account Settings</h3>
+
+                                        {isEditingName ? (
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={newNameInput}
+                                                    onChange={(e) => setNewNameInput(e.target.value)}
+                                                    maxLength={15}
+                                                    className="flex-1 bg-black/50 border border-white/20 text-white rounded-lg px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
+                                                    autoFocus
+                                                    onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
+                                                />
+                                                <button onClick={handleSaveName} disabled={isSaving} className="p-2 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500 hover:text-white transition-colors">
+                                                    <Check size={18} />
+                                                </button>
+                                                <button onClick={() => setIsEditingName(false)} className="p-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition-colors">
+                                                    <X size={18} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button onClick={() => { setIsEditingName(true); setNewNameInput(userProfile.name); }} className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-colors group">
+                                                <span className="font-bold">Change Display Name</span>
+                                                <Edit2 size={16} className="text-gray-500 group-hover:text-white transition-colors" />
+                                            </button>
+                                        )}
+
+                                        <button className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-colors group">
+                                            <span className="font-bold">Privacy & Security</span>
+                                            <span className="text-xs text-gray-500 font-medium bg-black/40 px-2 py-1 rounded">Managed by Google</span>
                                         </button>
                                     </div>
-                                ) : (
-                                    <div className="flex items-center justify-center gap-2 mb-1 group cursor-pointer" onClick={() => { setIsEditingName(true); setNewNameInput(userProfile.name); }}>
-                                        <h2 className="text-2xl font-black">{userProfile.name}</h2>
-                                        <Edit2 size={16} className="text-gray-500 group-hover:text-white transition-colors" />
-                                    </div>
-                                )}
-
-                                <p className="text-matte-blue-light font-mono text-xl font-bold mb-6">{userProfile.coins} Coins</p>
+                                </div>
 
                                 <button onClick={handleLogout} className="w-full py-3 bg-red-500/20 text-red-500 font-bold border border-red-500/30 rounded-full hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2">
                                     <LogOut size={18} /> Sign Out

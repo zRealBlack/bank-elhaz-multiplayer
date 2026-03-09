@@ -36,13 +36,12 @@ async function startServer() {
       const user = await prisma.user.upsert({
         where: { id: payload.sub },
         update: {
-          name: payload.name || "Unknown",
-          picture: payload.picture || null,
+          picture: payload.picture || null, // Deliberately omit name so we don't overwrite custom names
         },
         create: {
           id: payload.sub,
           email: payload.email || "",
-          name: payload.name || "Unknown",
+          name: payload.given_name || payload.name || "Unknown",
           picture: payload.picture || null,
           coins: 0,
         },
@@ -53,6 +52,28 @@ async function startServer() {
     } catch (error) {
       console.error("Auth error:", error);
       res.status(500).json({ error: "Server error" });
+    }
+  });
+
+  app.post("/api/user/name", async (req, res) => {
+    try {
+      const { token, newName } = req.body;
+      if (!newName || newName.trim() === "") return res.status(400).json({ error: "Name cannot be empty" });
+
+      const ticket = await googleClient.verifyIdToken({ idToken: token, audience: process.env.GOOGLE_CLIENT_ID });
+      const payload = ticket.getPayload();
+      if (!payload || !payload.sub) return res.status(400).json({ error: "Invalid token" });
+
+      const updatedUser = await prisma.user.update({
+        where: { id: payload.sub },
+        data: { name: newName.trim() },
+        include: { unlocks: true }
+      });
+
+      res.json({ user: updatedUser });
+    } catch (error) {
+      console.error("Name update error:", error);
+      res.status(500).json({ error: "Failed to update name" });
     }
   });
 
@@ -194,6 +215,22 @@ async function startServer() {
 
       room.players.push(newPlayer);
       io.to(roomId).emit("room_update", room);
+    });
+
+    socket.on("select_character", ({ roomId, color, character }) => {
+      const room = rooms.get(roomId);
+      if (room && room.gameState === "LOBBY") {
+        const playerIndex = room.players.findIndex((p: any) => p.id === socket.id);
+        if (playerIndex !== -1) {
+          if (color && !room.players.some((p: any) => p.id !== socket.id && p.color === color)) {
+            room.players[playerIndex].color = color;
+          }
+          if (character && !room.players.some((p: any) => p.id !== socket.id && p.character === character)) {
+            room.players[playerIndex].character = character;
+          }
+          io.to(roomId).emit("room_update", room);
+        }
+      }
     });
 
     socket.on("trade", ({ roomId, targetId, myProperties, theirProperties, myMoney, theirMoney }) => {

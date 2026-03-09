@@ -22,8 +22,8 @@ export const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, userProfi
         { id: 'char_bot', name: 'Robot', tab: 'Characters', price: 500, icon: '🤖' },
         { id: 'char_ninja', name: 'Ninja', tab: 'Characters', price: 1500, icon: '🥷' },
 
-        { id: 'map_mars', name: 'Mars Colony', tab: 'Maps', price: 2000, icon: '🪐' },
-        { id: 'map_egypt', name: 'Ancient Egypt', tab: 'Maps', price: 2500, icon: '🏜️' },
+        { id: 'map_mars', name: 'Mars Colony', tab: 'Maps', price: 2000, image: 'https://images.unsplash.com/photo-1614730321146-b6fa6a46bcb4?q=80&w=1974&auto=format&fit=crop' },
+        { id: 'map_egypt', name: 'Ancient Egypt', tab: 'Maps', price: 2500, image: 'https://images.unsplash.com/photo-1572252009286-268acec5ca0a?q=80&w=2070&auto=format&fit=crop' },
 
         { id: 'color_neon_pink', name: 'Neon Pink', tab: 'Colors', price: 300, icon: '💗' },
         { id: 'color_gold_rush', name: 'Gold Rush', tab: 'Colors', price: 800, icon: '💛' },
@@ -64,8 +64,8 @@ export const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, userProfi
 
                     <div className="flex-1 flex flex-col max-w-7xl mx-auto w-full">
                         <div className="text-center mb-10">
-                            <Store size={64} className="text-purple-400 mx-auto mb-4 drop-shadow-[0_0_15px_rgba(168,85,247,0.5)]" />
-                            <h2 className="text-5xl font-black mb-3 tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">Item Shop</h2>
+                            <Store size={64} className="text-yellow-400 mx-auto mb-4 drop-shadow-[0_0_15px_rgba(250,204,21,0.5)]" />
+                            <h2 className="text-5xl font-black mb-3 tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-yellow-200">Item Shop</h2>
                             <p className="text-gray-400 text-lg font-medium">Unlock exclusive cosmetics, characters, and maps to flex on your opponents!</p>
                             {errorText && <div className="text-red-500 text-sm mt-4 font-bold bg-red-500/10 inline-block px-4 py-2 rounded-lg border border-red-500/20">{errorText}</div>}
                         </div>
@@ -77,7 +77,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, userProfi
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
                                     className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all whitespace-nowrap ${activeTab === tab.id
-                                        ? 'bg-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.4)]'
+                                        ? 'bg-matte-blue-mid text-white shadow-[0_0_15px_rgba(135,206,235,0.4)]'
                                         : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
                                         }`}
                                 >
@@ -130,11 +130,18 @@ export const ShopModal: React.FC<ShopModalProps> = ({ isOpen, onClose, userProfi
 
                                     return (
                                         <div key={item.id} className={`bg-white/5 border ${isOwned ? 'border-green-500/50 shadow-[0_0_15px_rgba(34,197,94,0.1)]' : 'border-white/10'} p-6 rounded-3xl flex flex-col items-center gap-4 hover:bg-white/10 hover:-translate-y-1 transition-all`}>
-                                            <div className="w-24 h-24 bg-black/40 rounded-2xl flex items-center justify-center text-5xl shrink-0 shadow-inner">
-                                                {item.icon}
-                                            </div>
+                                            {item.image ? (
+                                                <div className="w-full relative rounded-2xl overflow-hidden shadow-inner h-32 group-hover:shadow-[0_0_20px_rgba(135,206,235,0.2)]">
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10" />
+                                                    <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                                </div>
+                                            ) : (
+                                                <div className="w-24 h-24 bg-black/40 rounded-2xl flex items-center justify-center text-5xl shrink-0 shadow-inner">
+                                                    {item.icon}
+                                                </div>
+                                            )}
                                             <div className="text-center w-full">
-                                                <div className="text-xs text-purple-400 font-bold uppercase tracking-widest mb-1">{item.tab}</div>
+                                                <div className="text-xs text-matte-blue-light font-bold uppercase tracking-widest mb-1">{item.tab}</div>
                                                 <div className="font-black text-xl leading-tight mb-4">{item.name}</div>
                                             </div>
                                             <div className="mt-auto w-full">
