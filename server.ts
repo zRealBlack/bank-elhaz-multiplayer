@@ -1527,6 +1527,17 @@ async function startServer() {
           });
         } else if (card.effect === "rent_immunity") {
           player.rentImmunity = true;
+        } else if (card.effect === "swap_position") {
+          if (player.isBot) {
+            const otherPlayers = room.players.filter((p: any) => p.id !== player.id && !p.isBankrupt);
+            if (otherPlayers.length > 0) {
+              const target = otherPlayers[Math.floor(Math.random() * otherPlayers.length)];
+              const temp = player.position;
+              player.position = target.position;
+              target.position = temp;
+              room.history.push({ type: "swap_position", playerName: player.name, targetName: target.name, playerId: player.id });
+            }
+          }
         }
 
         // Bankruptcy check after applying card
