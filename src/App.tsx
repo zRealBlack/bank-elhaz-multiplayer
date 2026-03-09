@@ -763,10 +763,14 @@ export default function App() {
       setActiveInput("PLAY");
       return;
     }
-    const targetRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-    if (socket) {
-      socket.emit("join_room", { roomId: targetRoomId, playerName, authId: userProfile?.id });
-      setIsJoined(true);
+    const bestRoom = activeRooms.sort((a, b) => b.playersCount - a.playersCount)[0];
+    if (bestRoom) {
+      if (socket) {
+        socket.emit("join_room", { roomId: bestRoom.id, playerName, authId: userProfile?.id });
+        setIsJoined(true);
+      }
+    } else {
+      setShowRooms(true);
     }
   };
 

@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import { createServer as createViteServer } from "vite";
@@ -18,6 +19,7 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 async function startServer() {
   const app = express();
+  app.use(cors());
   app.use(express.json()); // For POST body parsing
 
   app.post("/api/auth/google", async (req, res) => {
