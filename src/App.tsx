@@ -939,7 +939,7 @@ export default function App() {
           >
             <div className="absolute inset-0 bg-matte-blue-light/20 blur-[100px] rounded-full" />
             <h1 className="text-7xl md:text-9xl font-black text-center tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-blue-100 to-matte-blue-light drop-shadow-[0_0_30px_rgba(135,206,235,0.3)]">
-              BANK ELHAZ<span className="text-2xl md:text-4xl text-matte-blue-light drop-shadow-[0_0_10px_rgba(135,206,235,0.8)]">.io</span>
+              BANK ELHAZ<span className="align-top text-2xl md:text-4xl -ml-2">.io</span>
             </h1>
             <p className="text-center mt-4 text-xl md:text-2xl text-matte-blue-light/60 font-medium tracking-widest uppercase">The ultimate monopoly experience</p>
           </motion.div>
@@ -990,6 +990,12 @@ export default function App() {
                 ROOMS
               </button>
             )}
+
+            <div className="mt-8 text-center">
+              <span className="text-[10px] font-black tracking-[0.3em] text-white/30 uppercase">
+                by GAML STUDIOS
+              </span>
+            </div>
           </div>
         </div>
 
