@@ -770,6 +770,7 @@ export default function App() {
     if (log.turns !== undefined) text = text.replace("{turns}", log.turns.toString());
     if (log.myProp) text = text.replace("{myProp}", log.myProp);
     if (log.targetProp) text = text.replace("{targetProp}", log.targetProp);
+    if (log.title) text = text.replace("{title}", log.title);
     return text;
   };
 
@@ -1749,7 +1750,7 @@ export default function App() {
                       {tile.type === "VACATION" && (
                         <div className="flex flex-col items-center scale-90 sm:scale-100 md:scale-110 relative">
                           <Palmtree size={36} className="text-yellow-400" />
-                          {room?.settings.vacationCash && room?.vacationCash > 0 && (
+                          {room?.vacationCash > 0 && (
                             <div className="absolute -bottom-4 bg-black/60 px-1 py-0.5 rounded border border-yellow-400/30">
                               <span className="text-yellow-400 font-mono font-bold text-[10px]">${room.vacationCash}</span>
                             </div>

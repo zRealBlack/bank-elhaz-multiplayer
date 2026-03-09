@@ -689,7 +689,6 @@ async function startServer() {
             amount: room.currentAuction.highestBid,
             timestamp: Date.now()
           });
-          room.history.push({ type: "place_bid", playerName: player.name, amount: amount, total: room.currentAuction.highestBid, playerId: player.id });
           io.to(roomId).emit("room_update", room);
         }
       }
@@ -1146,7 +1145,6 @@ async function startServer() {
               amount: auction.highestBid,
               timestamp: Date.now()
             });
-            room.history.push({ type: "place_bid", playerName: bot.name, amount: bidIncrease, total: auction.highestBid, playerId: bot.id });
             io.to(roomId).emit("room_update", room);
           }
         }
@@ -1442,8 +1440,11 @@ async function startServer() {
         // Apply card effect immediately
         if (card.effect === "add_money") {
           player.money += card.amount;
+          room.history.push({ type: "gain_money_card", playerName: player.name, amount: card.amount, title: card.text.split(" ").slice(0, -1).join(" "), playerId: player.id });
         } else if (card.effect === "sub_money") {
           player.money -= card.amount;
+          room.vacationCash = (room.vacationCash || 0) + card.amount;
+          room.history.push({ type: "pay_fine_card", playerName: player.name, amount: card.amount, title: card.text.split(" ").slice(0, -1).join(" "), playerId: player.id });
         } else if (card.effect === "pay_all") {
           const activeOthers = room.players.filter((p: any) => p.id !== player.id && !p.isBankrupt);
           const totalPay = card.amount * activeOthers.length;
@@ -1456,7 +1457,10 @@ async function startServer() {
           player.money += (card.amount * activeOthers.length);
           room.history.push({ type: "collect_all_card", playerName: player.name, amount: card.amount, playerId: player.id });
         } else if (card.effect === "property_tax") {
-          player.money -= player.properties.length * card.amount;
+          const tax = player.properties.length * card.amount;
+          player.money -= tax;
+          room.vacationCash = (room.vacationCash || 0) + tax;
+          room.history.push({ type: "pay_tax_card", playerName: player.name, amount: tax, title: card.text.split(" ").slice(0, -1).join(" "), playerId: player.id });
         } else if (card.effect === "move_back") {
           player.position = (player.position - card.amount + 48) % 48;
           const newTile = BOARD_DATA[player.position];

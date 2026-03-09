@@ -200,6 +200,9 @@ export const ENGLISH = {
   history_pay_rent: "{player} paid ${amount} rent to {target}",
   history_test_mode_all_props: "{player} used test mode and took all properties!",
   history_win_vacation_cash: "{player} landed on Vacation and won ${amount} free cash!",
+  history_gain_money_card: "{player} drew: {title} (+${amount})",
+  history_pay_fine_card: "{player} drew: {title} (-${amount})",
+  history_pay_tax_card: "{player} paid property tax: {title} (-${amount})",
 };
 
 export const EGYPTIAN_ARABIC = {
@@ -316,6 +319,9 @@ export const EGYPTIAN_ARABIC = {
   history_pay_rent: "{player} دفع {amount}$ إيجار لـ {target}",
   history_test_mode_all_props: "{player} استخدم وضع الاختبار وأخذ كل الأملاك!",
   history_win_vacation_cash: "{player} نزل على الإجازة وكسب {amount}$ كاش مجاني!",
+  history_gain_money_card: "{player} حظه حلو: {title} (+{amount}$)",
+  history_pay_fine_card: "{player} دفع غرامة: {title} (-{amount}$)",
+  history_pay_tax_card: "{player} دفع ضريبة أملاك: {title} (-{amount}$)",
 };
 
 export const ENGLISH_BOARD_DATA = [

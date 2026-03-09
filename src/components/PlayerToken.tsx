@@ -31,7 +31,7 @@ export const PlayerToken = ({ color, character, isCurrentPlayer, direction }: Pl
         className="text-xl drop-shadow-lg select-none"
         style={{ color: color }}
       >
-        <Car size={20} strokeWidth={2.5} />
+        <Car size={20} strokeWidth={2.5} fill="currentColor" />
       </div>
 
       {/* Glow effect for active player */}
