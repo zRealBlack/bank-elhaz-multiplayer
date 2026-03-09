@@ -126,6 +126,9 @@ export default function App() {
   const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
   const [expandedTileId, setExpandedTileId] = useState<number | null>(null);
 
+  const [drawnCard, setDrawnCard] = useState<{ card: any; playerId: string; roomId: string; type: string } | null>(null);
+  const [showSwapSelection, setShowSwapSelection] = useState(false);
+
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -208,6 +211,18 @@ export default function App() {
 
     newSocket.on("new_chat", (chat) => {
       setChats(prev => [...prev, chat]);
+    });
+
+    newSocket.on("card_drawn", (data) => {
+      setDrawnCard(data);
+      if (data.card.effect !== "swap_position" || data.playerId !== newSocket.id) {
+        setTimeout(() => setDrawnCard(null), 3000);
+      } else {
+        setTimeout(() => {
+          setDrawnCard(null);
+          setShowSwapSelection(true);
+        }, 3000);
+      }
     });
 
     newSocket.on("auction_timer", ({ timer }) => {
@@ -2488,6 +2503,78 @@ export default function App() {
             t={t}
             language={language}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {drawnCard && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5, y: 50 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.5, y: -50 }}
+            className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={() => setDrawnCard(null)}
+          >
+            <div className={`w-80 max-w-full rounded-3xl p-8 border-4 shadow-2xl flex flex-col items-center text-center bg-[#252D38]
+              ${drawnCard.type === "TREASURE" ? "border-[#C9A84C]" : "border-purple-500"}
+              relative overflow-hidden`}>
+              <div className={`absolute -top-20 -right-20 w-40 h-40 rounded-full blur-3xl opacity-30
+                ${drawnCard.type === "TREASURE" ? "bg-[#C9A84C]" : "bg-purple-500"}`} />
+
+              <h2 className={`text-2xl font-black mb-6 uppercase tracking-widest z-10
+                ${drawnCard.type === "TREASURE" ? "text-[#C9A84C]" : "text-purple-400"}`}>
+                {drawnCard.type === "TREASURE" ? "صندوق الكنز 🪙" : "المفاجأة ❓"}
+              </h2>
+
+              <div className="text-6xl mb-6 z-10 drop-shadow-lg">
+                {drawnCard.card.text.split(" ").pop()}
+              </div>
+
+              <p className="text-xl font-bold text-white z-10 leading-relaxed">
+                {drawnCard.card.text.split(" ").slice(0, -1).join(" ")}
+              </p>
+
+              {drawnCard.playerId !== socket?.id && (
+                <div className="mt-6 text-sm text-gray-400 z-10 font-medium">
+                  {room?.players.find((p: any) => p.id === drawnCard.playerId)?.name} drew this...
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showSwapSelection && room && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-[#1a1c24] border border-white/10 p-8 rounded-3xl max-w-md w-full text-center relative shadow-2xl">
+              <button onClick={() => setShowSwapSelection(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors">
+                <X size={24} />
+              </button>
+              <h2 className="text-2xl font-black mb-6">اختر لاعب للتبديل معه 🔄</h2>
+              <div className="space-y-3">
+                {room.players.filter((p: any) => !p.isBankrupt && p.id !== socket?.id).map((p: any) => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      socket?.emit("swap_position", { roomId: room.id, targetId: p.id });
+                      setShowSwapSelection(false);
+                    }}
+                    className="w-full flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all font-bold group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-4 h-4 rounded-full shadow-inner" style={{ backgroundColor: p.color }} />
+                      <span>{p.name}</span>
+                    </div>
+                    <ArrowRightLeft size={16} className="text-gray-500 group-hover:text-white" />
+                  </button>
+                ))}
+                {room.players.filter((p: any) => !p.isBankrupt && p.id !== socket?.id).length === 0 && (
+                  <p className="text-gray-400 py-4">لا يوجد لاعبين آخرين للتبديل معهم.</p>
+                )}
+              </div>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

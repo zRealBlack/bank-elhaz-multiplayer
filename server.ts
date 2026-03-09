@@ -5,6 +5,45 @@ import { Server } from "socket.io";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { BOARD_DATA, PLAYER_COLORS, PLAYER_CHARACTERS, EGYPTIAN_NAMES } from "./src/constants";
+
+const TREASURE_CARDS = [
+  { text: "خالتك بعتتلك فلوس 🎁", effect: "add_money", amount: 50 },
+  { text: "ادفع صدقة لكل لاعب 🤲", effect: "pay_all", amount: 30 },
+  { text: "ربحت في اليانصيب 🎰", effect: "add_money", amount: 200 },
+  { text: "عطلة مرضية 🏥", effect: "sub_money", amount: 100 },
+  { text: "بيع تحف قديمة 🏺", effect: "add_money", amount: 80 },
+  { text: "فاتورة الكهرباء جت 💡", effect: "sub_money", amount: 60 },
+  { text: "هدية عيد ميلاد من اللاعبين 🎂", effect: "collect_all", amount: 40 },
+  { text: "ضريبة الأملاك 🏛️", effect: "property_tax", amount: 50 },
+  { text: "مكافأة نهاية السنة 💼", effect: "add_money", amount: 150 },
+  { text: "غرامة مخالفة مرور 🚗", effect: "sub_money", amount: 40 },
+  { text: "استثمار ناجح في البورصة 📈", effect: "add_money", amount: 120 },
+  { text: "دفعت فاتورة النت 📡", effect: "sub_money", amount: 25 },
+];
+
+const SURPRISE_CARDS = [
+  { text: "ارجع 3 خطوات للوراء ⬅️", effect: "move_back", amount: 3 },
+  { text: "روح السجن مباشرة 👮", effect: "go_jail" },
+  { text: "انطلق على Salvador 🌴", effect: "go_to", tile: 11 },
+  { text: "روح على New York 🗽", effect: "go_to", tile: 39 },
+  { text: "تعالى على GO واقبض $200 ➡️", effect: "go_start" },
+  { text: "تقدم 4 خطوات للأمام ➡️", effect: "move_forward", amount: 4 },
+  { text: "روح على أقرب مطار ✈️", effect: "nearest_airport" },
+  { text: "بطاقة الخروج من السجن مجاناً 🔑", effect: "jail_free" },
+  { text: "تبادل مكانك مع أي لاعب تختاره 🔄", effect: "swap_position" },
+  { text: "ارجع للخلف لحد أول عقار 🔙", effect: "back_to_unowned" },
+  { text: "كل اللاعبين يتحركوا خطوة للأمام 🎲", effect: "all_forward_1" },
+  { text: "مش هتدفع إيجار الدور الجاي 🛡️", effect: "rent_immunity" },
+];
+
+function shuffleArray(array: any[]) {
+  const newArr = [...array];
+  for (let i = newArr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+  }
+  return newArr;
+}
 import { PrismaClient } from "@prisma/client";
 import { OAuth2Client } from "google-auth-library";
 import { Pool } from "pg";
@@ -173,7 +212,9 @@ async function startServer() {
           propertyLevels: {},
           mortgagedProperties: [],
           board: [],
-          vacationCash: 0
+          vacationCash: 0,
+          chanceDeck: shuffleArray(SURPRISE_CARDS),
+          treasureDeck: shuffleArray(TREASURE_CARDS)
         });
       }
 
@@ -212,7 +253,8 @@ async function startServer() {
         isHost: room.players.length === 0,
         isReady: room.players.length === 0, // Host is always ready
         isBot: false,
-        doubleCount: 0
+        doubleCount: 0,
+        rentImmunity: false
       };
 
       room.players.push(newPlayer);
@@ -230,6 +272,21 @@ async function startServer() {
           if (character && !room.players.some((p: any) => p.id !== socket.id && p.character === character)) {
             room.players[playerIndex].character = character;
           }
+          io.to(roomId).emit("room_update", room);
+        }
+      }
+    });
+
+    socket.on("swap_position", ({ roomId, targetId }) => {
+      const room = rooms.get(roomId);
+      if (room && room.gameState === "PLAYING") {
+        const me = room.players.find((p: any) => p.id === socket.id);
+        const target = room.players.find((p: any) => p.id === targetId);
+        if (me && target && !me.isBankrupt && !target.isBankrupt) {
+          const temp = me.position;
+          me.position = target.position;
+          target.position = temp;
+          room.history.push({ type: "swap_position", playerName: me.name, targetName: target.name, playerId: me.id });
           io.to(roomId).emit("room_update", room);
         }
       }
@@ -499,6 +556,8 @@ async function startServer() {
 
           // Prevent rolling twice unless double
           if (room.hasRolled && !room.isDouble) return;
+
+          currentPlayer.rentImmunity = false; // Reset rent immunity at start of their roll
 
           let d1 = Math.floor(Math.random() * 6) + 1;
           let d2 = Math.floor(Math.random() * 6) + 1;
@@ -1333,39 +1392,152 @@ async function startServer() {
       } else if (tile.type === "PROPERTY" || tile.type === "AIRPORT" || tile.type === "COMPANY") {
         const owner = room.players.find((p: any) => p.properties.includes(tile.id) && p.id !== player.id);
         if (owner && !room.mortgagedProperties.includes(tile.id)) {
-          let rent = 0;
-          if (tile.type === "PROPERTY") {
-            const sameGroupTiles = BOARD_DATA.filter(t => t.group === tile.group);
-            const ownerHasFullSet = sameGroupTiles.every(t => owner.properties.includes(t.id));
-            const level = room.propertyLevels[tile.id] || 0;
-            rent = tile.rent[level];
-            if (ownerHasFullSet && level === 0 && room.settings.doubleRentFullSet) {
-              rent *= 2;
+          if (player.rentImmunity) {
+            room.history.push({ type: "used_rent_immunity", playerName: player.name, playerId: player.id });
+            player.rentImmunity = false;
+          } else {
+            let rent = 0;
+            if (tile.type === "PROPERTY") {
+              const sameGroupTiles = BOARD_DATA.filter(t => t.group === tile.group);
+              const ownerHasFullSet = sameGroupTiles.every(t => owner.properties.includes(t.id));
+              const level = room.propertyLevels[tile.id] || 0;
+              rent = tile.rent[level];
+              if (ownerHasFullSet && level === 0 && room.settings.doubleRentFullSet) {
+                rent *= 2;
+              }
+            } else if (tile.type === "AIRPORT") {
+              const airportCount = owner.properties.filter((id: number) => BOARD_DATA[id].type === "AIRPORT").length;
+              rent = tile.rent[airportCount - 1];
+            } else if (tile.type === "COMPANY") {
+              const companyCount = owner.properties.filter((id: number) => BOARD_DATA[id].type === "COMPANY").length;
+              rent = diceTotal * (companyCount === 1 ? 20 : companyCount === 2 ? 40 : 60);
             }
-          } else if (tile.type === "AIRPORT") {
-            const airportCount = owner.properties.filter((id: number) => BOARD_DATA[id].type === "AIRPORT").length;
-            rent = tile.rent[airportCount - 1];
-          } else if (tile.type === "COMPANY") {
-            const companyCount = owner.properties.filter((id: number) => BOARD_DATA[id].type === "COMPANY").length;
-            rent = diceTotal * (companyCount === 1 ? 20 : companyCount === 2 ? 40 : 60);
-          }
 
-          player.money -= rent;
-          owner.money += rent;
-          room.history.push({ type: "pay_rent", playerName: player.name, amount: rent, targetName: owner.name, playerId: player.id });
+            player.money -= rent;
+            owner.money += rent;
+            room.history.push({ type: "pay_rent", playerName: player.name, amount: rent, targetName: owner.name, playerId: player.id });
 
-          if (player.money < 0) {
-            player.isBankrupt = true;
-            player.money = 0;
-            room.history.push({ type: "bankrupt", playerName: player.name, playerId: player.id });
-            // Return properties to bank
-            player.properties.forEach((propId: number) => {
-              room.propertyLevels[propId] = 0;
-            });
-            player.properties = [];
+            if (player.money < 0) {
+              player.isBankrupt = true;
+              player.money = 0;
+              room.history.push({ type: "bankrupt", playerName: player.name, playerId: player.id });
+              // Return properties to bank
+              player.properties.forEach((propId: number) => {
+                room.propertyLevels[propId] = 0;
+              });
+              player.properties = [];
+            }
           }
         } else if (!owner) {
           room.mustActOnProperty = tile.id;
+        }
+      } else if (tile.type === "SURPRISE" || tile.type === "TREASURE") {
+        const deck = tile.type === "SURPRISE" ? room.chanceDeck : room.treasureDeck;
+        const card = deck.shift();
+        deck.push(card);
+
+        // Emit card_drawn event
+        io.to(room.id).emit("card_drawn", { card, playerId: player.id, roomId: room.id, type: tile.type });
+
+        // Apply card effect immediately
+        if (card.effect === "add_money") {
+          player.money += card.amount;
+        } else if (card.effect === "sub_money") {
+          player.money -= card.amount;
+        } else if (card.effect === "pay_all") {
+          const activeOthers = room.players.filter((p: any) => p.id !== player.id && !p.isBankrupt);
+          const totalPay = card.amount * activeOthers.length;
+          player.money -= totalPay;
+          activeOthers.forEach((p: any) => p.money += card.amount);
+          room.history.push({ type: "pay_all_card", playerName: player.name, amount: card.amount, playerId: player.id });
+        } else if (card.effect === "collect_all") {
+          const activeOthers = room.players.filter((p: any) => p.id !== player.id && !p.isBankrupt);
+          activeOthers.forEach((p: any) => p.money -= card.amount);
+          player.money += (card.amount * activeOthers.length);
+          room.history.push({ type: "collect_all_card", playerName: player.name, amount: card.amount, playerId: player.id });
+        } else if (card.effect === "property_tax") {
+          player.money -= player.properties.length * card.amount;
+        } else if (card.effect === "move_back") {
+          player.position = (player.position - card.amount + 48) % 48;
+          const newTile = BOARD_DATA[player.position];
+          if (newTile.type !== "SURPRISE" && newTile.type !== "TREASURE") {
+            handleTileAction(room, player, newTile, 0);
+          }
+        } else if (card.effect === "go_jail") {
+          player.position = 12;
+          player.inJail = true;
+          room.isDouble = false;
+        } else if (card.effect === "go_to") {
+          const targetTileStr = card.text.includes("Salvador") ? "Salvador" : "New York";
+          const targetIndex = BOARD_DATA.findIndex(t => t.name.includes(targetTileStr));
+          if (targetIndex !== -1) {
+            if (player.position > targetIndex) player.money += 200; // pass go
+            player.position = targetIndex;
+            handleTileAction(room, player, BOARD_DATA[targetIndex], 0);
+          }
+        } else if (card.effect === "go_start") {
+          player.position = 0;
+          player.money += 200;
+        } else if (card.effect === "move_forward") {
+          const oldPos = player.position;
+          player.position = (player.position + card.amount) % 48;
+          if (player.position < oldPos) player.money += 200;
+          const newTile = BOARD_DATA[player.position];
+          if (newTile.type !== "SURPRISE" && newTile.type !== "TREASURE") {
+            handleTileAction(room, player, newTile, 0);
+          }
+        } else if (card.effect === "nearest_airport") {
+          let found = false;
+          for (let i = 1; i <= 48; i++) {
+            const checkPos = (player.position + i) % 48;
+            if (BOARD_DATA[checkPos].type === "AIRPORT") {
+              if (checkPos < player.position) player.money += 200; // pass go
+              player.position = checkPos;
+              handleTileAction(room, player, BOARD_DATA[checkPos], 0);
+              found = true;
+              break;
+            }
+          }
+        } else if (card.effect === "jail_free") {
+          player.jailCards = (player.jailCards || 0) + 1;
+        } else if (card.effect === "back_to_unowned") {
+          for (let i = 1; i <= 48; i++) {
+            const checkPos = (player.position - i + 48) % 48;
+            const t = BOARD_DATA[checkPos];
+            if (t.type === "PROPERTY" || t.type === "AIRPORT" || t.type === "COMPANY") {
+              const o = room.players.find((p: any) => p.properties.includes(checkPos));
+              if (!o) {
+                player.position = checkPos;
+                handleTileAction(room, player, BOARD_DATA[checkPos], 0);
+                break;
+              }
+            }
+          }
+        } else if (card.effect === "all_forward_1") {
+          room.players.forEach((p: any) => {
+            if (!p.isBankrupt) {
+              const oldPos = p.position;
+              p.position = (p.position + 1) % 48;
+              if (p.position < oldPos) p.money += 200;
+              const destTile = BOARD_DATA[p.position];
+              if (destTile.type !== "SURPRISE" && destTile.type !== "TREASURE") {
+                handleTileAction(room, p, destTile, 0);
+              }
+            }
+          });
+        } else if (card.effect === "rent_immunity") {
+          player.rentImmunity = true;
+        }
+
+        // Bankruptcy check after applying card
+        if (player.money < 0) {
+          player.isBankrupt = true;
+          player.money = 0;
+          room.history.push({ type: "bankrupt", playerName: player.name, playerId: player.id });
+          player.properties.forEach((propId: number) => {
+            room.propertyLevels[propId] = 0;
+          });
+          player.properties = [];
         }
       }
     }
