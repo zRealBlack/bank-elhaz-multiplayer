@@ -18,6 +18,19 @@ interface PropertyModalProps {
   language: "EN" | "AR";
 }
 
+const AREA_NAMES: Record<string, { EN: string; AR: string }> = {
+  zamalek_giza: { EN: "Zamalek & Giza", AR: "الزمالك والجيزة" },
+  sheikh_zayed: { EN: "Sheikh Zayed", AR: "الشيخ زايد" },
+  hadayek_ahram: { EN: "Hadayek El-Ahram", AR: "حدائق الأهرام" },
+  sixth_october: { EN: "6th of October", AR: "السادس من أكتوبر" },
+  faisal: { EN: "Faisal", AR: "فيصل" },
+  haram: { EN: "Al-Haram", AR: "الهرم" },
+  mohandeseen: { EN: "Mohandeseen", AR: "المهندسين" },
+  dokki_agouza: { EN: "Dokki & Agouza", AR: "الدقي والعجوزة" },
+  shobra: { EN: "Shobra", AR: "شبرا" },
+  heliopolis: { EN: "Heliopolis", AR: "مصر الجديدة" }
+};
+
 export const PropertyModal = ({
   property,
   owner,
@@ -95,9 +108,22 @@ export const PropertyModal = ({
           </button>
 
           <div className="px-5 pt-4 pb-4">
-            {/* Property name */}
-            <div className="text-center mb-4">
+            {/* Property name and Area name */}
+            <div className="text-center mb-4 relative z-10">
               <h3 className="text-xl font-bold text-white tracking-tight">{property.name}</h3>
+              {property.group && AREA_NAMES[property.group] && (
+                <div className="mt-2 flex justify-center">
+                  <div
+                    className="px-2.5 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-widest text-white shadow-sm"
+                    style={{
+                      backgroundColor: `${tileColor}33`,
+                      borderColor: tileColor,
+                    }}
+                  >
+                    {AREA_NAMES[property.group][language]}
+                  </div>
+                </div>
+              )}
               {owner && (
                 <div className="flex items-center justify-center gap-2 mt-1.5">
                   <div className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: owner.color }} />
@@ -143,8 +169,8 @@ export const PropertyModal = ({
                       onClick={onUpgrade}
                       disabled={!canUpgrade}
                       className={`w-10 h-10 flex items-center justify-center border rounded-xl transition-all ${canUpgrade
-                          ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30"
-                          : "bg-white/5 border-white/10 text-white/20 cursor-not-allowed"
+                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30"
+                        : "bg-white/5 border-white/10 text-white/20 cursor-not-allowed"
                         }`}
                     >
                       <ArrowUp size={18} />
@@ -170,8 +196,8 @@ export const PropertyModal = ({
                     <button
                       onClick={onMortgage}
                       className={`w-10 h-10 flex items-center justify-center border rounded-xl transition-all ${isMortgaged
-                          ? "bg-emerald-600/20 border-emerald-500/30 text-emerald-400 hover:bg-emerald-600/30"
-                          : "bg-amber-500/20 border-amber-500/30 text-amber-400 hover:bg-amber-500/30"
+                        ? "bg-emerald-600/20 border-emerald-500/30 text-emerald-400 hover:bg-emerald-600/30"
+                        : "bg-amber-500/20 border-amber-500/30 text-amber-400 hover:bg-amber-500/30"
                         }`}
                     >
                       <Handshake size={18} />
