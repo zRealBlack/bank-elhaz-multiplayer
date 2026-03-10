@@ -57,7 +57,7 @@ const SCHOOL_FULL_NAMES: Record<string, { EN: string; AR: string }> = {
   "OES": { EN: "Orman English School", AR: "مدرسة الأورمان الإنجليزية" },
   "LRDL": { EN: "La Rose De Lisieux Schools", AR: "مدارس لا روز دي ليزيه" },
   "NIS": { EN: "Nefertari International School", AR: "مدرسة نفرتاري الدولية" },
-  "NVIS": { EN: "New Vision International School", AR: "مدرسة نيو فيجن الدولية" }
+  "NVIS": { EN: "New Vision International School", AR: "مدرسة الرؤية الجديدة الدولية" }
 };
 
 type GameState = "LOBBY" | "PLAYING" | "GAME_OVER";
