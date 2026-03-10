@@ -31,11 +31,11 @@ const AREA_NAMES: Record<string, { EN: string; AR: string }> = {
   elmoneeb: { EN: "El-Moneeb", AR: "المنيب" }
 };
 
-const SCHOOL_FULL_NAMES: Record<string, string> = {
-  "OES": "Orman English School",
-  "LRDL": "La Rose De Lisieux Schools",
-  "NIS": "Nefertari International School",
-  "NVIS": "New Vision International School"
+const SCHOOL_FULL_NAMES: Record<string, { EN: string; AR: string }> = {
+  "OES": { EN: "Orman English School", AR: "مدرسة الأورمان الإنجليزية" },
+  "LRDL": { EN: "La Rose De Lisieux Schools", AR: "مدارس لا روز دي ليزيه" },
+  "NIS": { EN: "Nefertari International School", AR: "مدرسة نفرتاري الدولية" },
+  "NVIS": { EN: "New Vision International School", AR: "مدرسة نيو فيجن الدولية" }
 };
 
 export const PropertyModal = ({
@@ -66,11 +66,11 @@ export const PropertyModal = ({
       { label: t.withThreeHouses, value: property.rent[3] },
       { label: t.withFourHouses, value: property.rent[4] },
       { label: t.withHotel, value: property.rent[5] },
-    ] : property.type === "AIRPORT" && property.rent ? [
-      { label: language === "AR" ? "مطار واحد" : "1 airport", value: property.rent[0] },
-      { label: language === "AR" ? "مطاران" : "2 airports", value: property.rent[1] },
-      { label: language === "AR" ? "3 مطارات" : "3 airports", value: property.rent[2] },
-      { label: language === "AR" ? "4 مطارات" : "4 airports", value: property.rent[3] },
+    ] : property.type === "AIRPORT" ? [
+      { label: language === "AR" ? "مدرسة واحدة" : "1 school", value: property.rent[0] },
+      { label: language === "AR" ? "مدرستان" : "2 schools", value: property.rent[1] },
+      { label: language === "AR" ? "3 مدارس" : "3 schools", value: property.rent[2] },
+      { label: language === "AR" ? "4 مدارس" : "4 schools", value: property.rent[3] },
     ] : property.type === "COMPANY" ? [
       { label: language === "AR" ? "شركة واحدة" : "1 company", value: "dice × 4" },
       { label: language === "AR" ? "الشركتان" : "Both companies", value: "dice × 10" },
@@ -118,7 +118,7 @@ export const PropertyModal = ({
             {/* Property name and Area name */}
             <div className="text-center mb-4 relative z-10">
               <h3 className="text-xl font-bold text-white tracking-tight">
-                {SCHOOL_FULL_NAMES[property.name] || property.name}
+                {SCHOOL_FULL_NAMES[property.name]?.[language] || property.name}
               </h3>
               {property.group && AREA_NAMES[property.group] && (
                 <div className="mt-2 flex justify-center">

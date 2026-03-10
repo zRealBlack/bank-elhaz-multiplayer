@@ -18,7 +18,7 @@ import {
   Lock,
   Skull,
   ArrowRight,
-  Plane,
+  GraduationCap,
   Home,
   Building2,
   AlertTriangle,
@@ -53,11 +53,11 @@ const AREA_NAMES: Record<string, { EN: string; AR: string }> = {
   elmoneeb: { EN: "El-Moneeb", AR: "المنيب" }
 };
 
-const SCHOOL_FULL_NAMES: Record<string, string> = {
-  "OES": "Orman English School",
-  "LRDL": "La Rose De Lisieux Schools",
-  "NIS": "Nefertari International School",
-  "NVIS": "New Vision International School"
+const SCHOOL_FULL_NAMES: Record<string, { EN: string; AR: string }> = {
+  "OES": { EN: "Orman English School", AR: "مدرسة الأورمان الإنجليزية" },
+  "LRDL": { EN: "La Rose De Lisieux Schools", AR: "مدارس لا روز دي ليزيه" },
+  "NIS": { EN: "Nefertari International School", AR: "مدرسة نفرتاري الدولية" },
+  "NVIS": { EN: "New Vision International School", AR: "مدرسة نيو فيجن الدولية" }
 };
 
 type GameState = "LOBBY" | "PLAYING" | "GAME_OVER";
@@ -1487,7 +1487,7 @@ export default function App() {
                               <div className="absolute inset-0 bg-black/10" />
                               <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent" />
                               <h3 className="text-xl font-bold text-white tracking-tight relative z-10 px-4 text-center">
-                                {SCHOOL_FULL_NAMES[auctionTile.name] || auctionTile.name}
+                                {SCHOOL_FULL_NAMES[auctionTile.name]?.[language] || auctionTile.name}
                               </h3>
                             </div>
 
@@ -1816,13 +1816,13 @@ export default function App() {
                       {tile.type === "AIRPORT" && (
                         side === 'top' ? (
                           <>
-                            <span className="text-[9px] line-clamp-1">{tile.name}</span>
-                            <Plane size={20} className="text-blue-400 rotate-45 mt-auto" />
+                            <span className="text-[9px] line-clamp-1">{language === "AR" ? `مدرسة ${tile.name}` : tile.name}</span>
+                            <GraduationCap size={20} className="text-blue-400 mt-auto" />
                           </>
                         ) : (
                           <div className="flex flex-col items-center">
-                            <Plane size={20} className="text-blue-400 rotate-45" />
-                            <span className="text-[9px] line-clamp-1">{tile.name}</span>
+                            <GraduationCap size={20} className="text-blue-400" />
+                            <span className="text-[9px] line-clamp-1">{language === "AR" ? `مدرسة ${tile.name}` : tile.name}</span>
                           </div>
                         )
                       )}
@@ -1966,10 +1966,10 @@ export default function App() {
                           { label: t.withFourHouses, value: tile.rent[4] },
                           { label: t.withHotel, value: tile.rent[5] },
                         ] : tile.type === "AIRPORT" && tile.rent ? [
-                          { label: language === "AR" ? "مطار واحد" : "1 airport", value: tile.rent[0] },
-                          { label: language === "AR" ? "مطاران" : "2 airports", value: tile.rent[1] },
-                          { label: language === "AR" ? "3 مطارات" : "3 airports", value: tile.rent[2] },
-                          { label: language === "AR" ? "4 مطارات" : "4 airports", value: tile.rent[3] },
+                          { label: language === "AR" ? "مدرسة واحدة" : "1 school", value: tile.rent[0] },
+                          { label: language === "AR" ? "مدرستان" : "2 schools", value: tile.rent[1] },
+                          { label: language === "AR" ? "3 مدارس" : "3 schools", value: tile.rent[2] },
+                          { label: language === "AR" ? "4 مدارس" : "4 schools", value: tile.rent[3] },
                         ] : tile.type === "COMPANY" ? [
                           { label: language === "AR" ? "شركة واحدة" : "1 company", value: "dice × 4" },
                           { label: language === "AR" ? "الشركتان" : "Both companies", value: "dice × 10" },
@@ -2001,7 +2001,7 @@ export default function App() {
                               {/* Property name */}
                               <div className="text-center mb-3">
                                 <h3 className="text-sm font-bold text-white tracking-tight text-center px-1">
-                                  {SCHOOL_FULL_NAMES[tile.name as keyof typeof SCHOOL_FULL_NAMES] || tile.name}
+                                  {SCHOOL_FULL_NAMES[tile.name as keyof typeof SCHOOL_FULL_NAMES]?.[language] || tile.name}
                                 </h3>
                                 {tile.type === "PROPERTY" && tile.group && AREA_NAMES[tile.group] && (
                                   <div className="mt-1.5 flex justify-center">
