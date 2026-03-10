@@ -40,6 +40,26 @@ import { PropertyModal } from "./components/PropertyModal";
 import { AccountModal } from "./components/AccountModal";
 import { ShopModal } from "./components/ShopModal";
 
+const AREA_NAMES: Record<string, { EN: string; AR: string }> = {
+  zamalek_giza: { EN: "Zamalek & Giza", AR: "الزمالك والجيزة" },
+  sheikh_zayed: { EN: "Sheikh Zayed", AR: "الشيخ زايد" },
+  northern_expansions: { EN: "Northern Expansions", AR: "التوسعات الشمالية" },
+  sixth_october: { EN: "6th of October", AR: "السادس من أكتوبر" },
+  faisal: { EN: "Faisal", AR: "فيصل" },
+  haram: { EN: "Al-Haram", AR: "الهرم" },
+  mohandeseen: { EN: "Mohandeseen", AR: "المهندسين" },
+  boulaq_dakrour: { EN: "Boulaq El-Dakrour", AR: "بولاق الدكرور" },
+  dokki_agouza: { EN: "Dokki & Agouza", AR: "الدقي والعجوزة" },
+  elmoneeb: { EN: "El-Moneeb", AR: "المنيب" }
+};
+
+const SCHOOL_FULL_NAMES: Record<string, string> = {
+  "OES": "Orman English School",
+  "LRDL": "La Rose De Lisieux Schools",
+  "NIS": "Nefertari International School",
+  "NVIS": "New Vision International School"
+};
+
 type GameState = "LOBBY" | "PLAYING" | "GAME_OVER";
 
 interface Player {
@@ -1466,7 +1486,9 @@ export default function App() {
                             <div className="h-20 w-full relative flex items-center justify-center shrink-0 border-b border-white/10" style={{ backgroundColor: auctionColor }}>
                               <div className="absolute inset-0 bg-black/10" />
                               <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent" />
-                              <h3 className="text-xl font-bold text-white tracking-tight relative z-10 px-4 text-center">{auctionTile.name}</h3>
+                              <h3 className="text-xl font-bold text-white tracking-tight relative z-10 px-4 text-center">
+                                {SCHOOL_FULL_NAMES[auctionTile.name] || auctionTile.name}
+                              </h3>
                             </div>
 
                             <div className="flex-1 p-5 flex flex-col">
@@ -1978,7 +2000,22 @@ export default function App() {
                             <div className="px-4 pt-3 pb-2">
                               {/* Property name */}
                               <div className="text-center mb-3">
-                                <h3 className="text-sm font-bold text-white tracking-tight">{tile.name}</h3>
+                                <h3 className="text-sm font-bold text-white tracking-tight text-center px-1">
+                                  {SCHOOL_FULL_NAMES[tile.name as keyof typeof SCHOOL_FULL_NAMES] || tile.name}
+                                </h3>
+                                {tile.type === "PROPERTY" && tile.group && AREA_NAMES[tile.group] && (
+                                  <div className="mt-1.5 flex justify-center">
+                                    <div
+                                      className="px-2 py-0.5 rounded-full border text-[8px] font-bold uppercase tracking-widest text-white shadow-sm"
+                                      style={{
+                                        backgroundColor: `${tileColor}33`,
+                                        borderColor: tileColor,
+                                      }}
+                                    >
+                                      {AREA_NAMES[tile.group][language]}
+                                    </div>
+                                  </div>
+                                )}
                                 {owner && (
                                   <div className="flex items-center justify-center gap-1.5 mt-1">
                                     <div className="w-2.5 h-2.5 rounded-full border border-white/20" style={{ backgroundColor: owner.color }} />

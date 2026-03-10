@@ -31,6 +31,13 @@ const AREA_NAMES: Record<string, { EN: string; AR: string }> = {
   elmoneeb: { EN: "El-Moneeb", AR: "المنيب" }
 };
 
+const SCHOOL_FULL_NAMES: Record<string, string> = {
+  "OES": "Orman English School",
+  "LRDL": "La Rose De Lisieux Schools",
+  "NIS": "Nefertari International School",
+  "NVIS": "New Vision International School"
+};
+
 export const PropertyModal = ({
   property,
   owner,
@@ -110,7 +117,9 @@ export const PropertyModal = ({
           <div className="px-5 pt-4 pb-4">
             {/* Property name and Area name */}
             <div className="text-center mb-4 relative z-10">
-              <h3 className="text-xl font-bold text-white tracking-tight">{property.name}</h3>
+              <h3 className="text-xl font-bold text-white tracking-tight">
+                {SCHOOL_FULL_NAMES[property.name] || property.name}
+              </h3>
               {property.group && AREA_NAMES[property.group] && (
                 <div className="mt-2 flex justify-center">
                   <div
