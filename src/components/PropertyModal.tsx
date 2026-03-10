@@ -21,14 +21,14 @@ interface PropertyModalProps {
 const AREA_NAMES: Record<string, { EN: string; AR: string }> = {
   zamalek_giza: { EN: "Zamalek & Giza", AR: "الزمالك والجيزة" },
   sheikh_zayed: { EN: "Sheikh Zayed", AR: "الشيخ زايد" },
-  hadayek_ahram: { EN: "Hadayek El-Ahram", AR: "حدائق الأهرام" },
+  northern_expansions: { EN: "Northern Expansions", AR: "التوسعات الشمالية" },
   sixth_october: { EN: "6th of October", AR: "السادس من أكتوبر" },
   faisal: { EN: "Faisal", AR: "فيصل" },
   haram: { EN: "Al-Haram", AR: "الهرم" },
   mohandeseen: { EN: "Mohandeseen", AR: "المهندسين" },
+  boulaq_dakrour: { EN: "Boulaq El-Dakrour", AR: "بولاق الدكرور" },
   dokki_agouza: { EN: "Dokki & Agouza", AR: "الدقي والعجوزة" },
-  shobra: { EN: "Shobra", AR: "شبرا" },
-  heliopolis: { EN: "Heliopolis", AR: "مصر الجديدة" }
+  elmoneeb: { EN: "El-Moneeb", AR: "المنيب" }
 };
 
 export const PropertyModal = ({
