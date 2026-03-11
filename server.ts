@@ -222,9 +222,9 @@ async function startServer() {
       const room = rooms.get(roomId);
       if (!room) return;
 
-      // Reconnection Logic
+      // Reconnection Logic: Match by authId OR name if disconnected
       const existingPlayer = room.players.find((p: any) => 
-        (authId && p.authId === authId) || (!authId && p.name === playerName && p.isDisconnected)
+        (authId && p.authId === authId) || (p.name === playerName && p.isDisconnected)
       );
 
       if (existingPlayer) {
@@ -250,10 +250,10 @@ async function startServer() {
         return;
       }
 
-      // Handle name uniqueness
+      // Handle name uniqueness (ignore disconnected players who we might want to re-link to)
       let finalName = playerName;
       let counter = 2;
-      while (room.players.some((p: any) => p.name === finalName)) {
+      while (room.players.some((p: any) => p.name === finalName && !p.isDisconnected)) {
         finalName = `${playerName}${counter}`;
         counter++;
       }
