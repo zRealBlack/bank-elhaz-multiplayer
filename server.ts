@@ -222,9 +222,9 @@ async function startServer() {
       const room = rooms.get(roomId);
       if (!room) return;
 
-      // Reconnection Logic: Match by authId OR name if disconnected
+      // Reconnection Logic: Match by authId OR name (to handle rapid refreshes where disconnect isn't processed yet)
       const existingPlayer = room.players.find((p: any) => 
-        (authId && p.authId === authId) || (p.name === playerName && p.isDisconnected)
+        (authId && p.authId === authId) || (p.name === playerName)
       );
 
       if (existingPlayer) {
@@ -234,8 +234,17 @@ async function startServer() {
           disconnectTimers.delete(timerKey);
         }
 
+        // If the old socket is still there, make it leave to avoid duplicates
+        const oldSocket = io.sockets.sockets.get(existingPlayer.id);
+        if (oldSocket && oldSocket.id !== socket.id) {
+          oldSocket.leave(roomId);
+        }
+
         existingPlayer.id = socket.id;
         existingPlayer.isDisconnected = false;
+        existingPlayer.authId = authId || existingPlayer.authId; // Update authId if it was missing
+        
+        console.log(`[Room ${roomId}] Player ${playerName} re-joined and claimed existing slot.`);
         io.to(roomId).emit("room_update", room);
         return;
       }
@@ -1626,6 +1635,7 @@ async function startServer() {
           const onlyBotsLeft = room.players.length > 0 && room.players.every((p: any) => p.isBot);
 
           if (room.players.length === 0 || wasHost || onlyBotsLeft) {
+            console.log(`[Room ${roomId}] Disbanding due to leave_room. Players: ${room.players.length}, wasHost: ${wasHost}, onlyBots: ${onlyBotsLeft}`);
             rooms.delete(roomId);
             io.to(roomId).emit("room_disbanded");
           } else {
@@ -1688,6 +1698,7 @@ async function startServer() {
                 const anyNotDisconnected = remainingRealPlayers.some((p: any) => !p.isDisconnected);
 
                 if (remainingRealPlayers.length === 0 || (currentRoom.players.length > 0 && currentRoom.players.every((p: any) => p.isBot))) {
+                  console.log(`[Room ${roomId}] Disbanding after 3m timeout. Humans left: ${remainingRealPlayers.length}`);
                   rooms.delete(roomId);
                   io.to(roomId).emit("room_disbanded");
                 } else {
