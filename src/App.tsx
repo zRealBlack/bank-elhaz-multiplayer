@@ -163,10 +163,30 @@ export default function App() {
   }, [visualPositions]);
 
   const copyInviteLink = () => {
-    const url = window.location.href;
+    const url = window.location.origin + "/" + (room?.id || roomId);
     navigator.clipboard.writeText(url);
-    alert("Invite link copied to clipboard!");
+    alert(language === "EN" ? "Invite link copied to clipboard!" : "تم نسخ رابط الدعوة!");
   };
+
+  // URL Deep Linking
+  useEffect(() => {
+    const path = window.location.pathname.slice(1);
+    if (path && path.length >= 4) {
+      setRoomId(path);
+      setActiveInput("PLAY");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isJoined && room?.id) {
+      const newUrl = `/${room.id}`;
+      if (window.location.pathname !== newUrl) {
+        window.history.pushState(null, "", newUrl);
+      }
+    } else if (!isJoined && window.location.pathname !== "/") {
+      window.history.pushState(null, "", "/");
+    }
+  }, [isJoined, room]);
 
   useEffect(() => {
     const backendUrl = import.meta.env.VITE_BACKEND_URL || undefined;
@@ -831,10 +851,10 @@ export default function App() {
       setActiveInput("PLAY");
       return;
     }
-    const bestRoom = activeRooms.sort((a, b) => b.playersCount - a.playersCount)[0];
-    if (bestRoom) {
+    const targetRoomId = roomId || activeRooms.sort((a, b) => b.playersCount - a.playersCount)[0]?.id;
+    if (targetRoomId) {
       if (socket) {
-        socket.emit("join_room", { roomId: bestRoom.id, playerName, authId: userProfile?.id });
+        socket.emit("join_room", { roomId: targetRoomId, playerName, authId: userProfile?.id });
         setIsJoined(true);
       }
     } else {
