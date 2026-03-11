@@ -172,6 +172,11 @@ export default function App() {
     if (savedName && !playerName) {
       setPlayerName(savedName);
     }
+    
+    // Ensure persistent session ID
+    if (!localStorage.getItem("bank_elhaz_session_id")) {
+      localStorage.setItem("bank_elhaz_session_id", Math.random().toString(36).substring(2, 15));
+    }
   }, []);
 
   useEffect(() => {
@@ -210,19 +215,26 @@ export default function App() {
 
   // URL Deep Linking
   useEffect(() => {
+    if (!socket) return;
+    
     const path = window.location.pathname.slice(1);
     if (path && path.length >= 4) {
       setRoomId(path);
       setActiveInput("PLAY");
       
-      // Auto-join if name exists
       const savedName = localStorage.getItem("bank_elhaz_player_name");
-      if (savedName && socket && !isJoined) {
-        socket.emit("join_room", { roomId: path, playerName: savedName });
+      const sessionId = localStorage.getItem("bank_elhaz_session_id");
+      
+      if (savedName && !isJoined) {
+        socket.emit("join_room", { 
+          roomId: path, 
+          playerName: savedName, 
+          authId: userProfile?.id || sessionId 
+        });
         setIsJoined(true);
       }
     }
-  }, [socket]); // Run when socket is ready
+  }, [socket, userProfile]);
 
   useEffect(() => {
     if (isJoined && room?.id) {
@@ -1172,21 +1184,27 @@ export default function App() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {room.players.map((player) => (
-                  <div key={player.id} className="flex items-center justify-between bg-matte-blue-deep/40 p-4 rounded-xl border border-white/5">
+                  <div key={player.id} className={`flex items-center justify-between p-4 rounded-xl border ${player.isDisconnected ? 'bg-red-500/10 border-red-500/30' : 'bg-matte-blue-deep/40 border-white/5'}`}>
                     <div className="flex items-center gap-3">
                       <div className="w-4 h-4 rounded-full" style={{ backgroundColor: player.color }} />
-                      <span className="font-medium">
+                      <span className={`font-medium ${player.isDisconnected ? 'text-red-400' : ''}`}>
                         {player.name}
+                        {player.isDisconnected && (
+                          <span className="ml-2 text-[10px] bg-red-500/20 px-2 py-0.5 rounded uppercase font-black flex items-center gap-1">
+                            {language === "EN" ? "Offline" : "منقطع"}
+                            <DisconnectTimer disconnectTime={player.disconnectTime} />
+                          </span>
+                        )}
                         {player.id === socket?.id && ` (${t.you})`}
                       </span>
                       {player.isHost && <span className="text-xs bg-matte-blue-light/20 text-matte-blue-light px-2 py-0.5 rounded-full border border-matte-blue-light/30">{t.host}</span>}
-                      {!player.isHost && (
+                      {(!player.isHost || (player.isHost && player.isDisconnected)) && !player.isBot && (
                         <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full border ${player.isReady ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'}`}>
                           {player.isReady ? 'Ready' : 'Not Ready'}
                         </span>
                       )}
                     </div>
-                    {room.players.find(p => p.id === socket?.id)?.isHost && player.id !== socket?.id && (
+                    {room.players.find(p => p.id === socket?.id)?.isHost && player.id !== socket?.id && !player.isBot && !player.isDisconnected && (
                       <button className="text-red-400 hover:text-red-300 transition-colors">
                         <X size={18} />
                       </button>
