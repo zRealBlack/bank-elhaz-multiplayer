@@ -66,6 +66,7 @@ interface Player {
   id: string;
   name: string;
   color: string;
+  character: string; // Added
   money: number;
   position: number;
   properties: number[];
@@ -107,12 +108,14 @@ interface Room {
     highestBidder: string | null;
     timer: number;
     participants: string[];
+    bidLog: any[]; // Added
   } | null;
   propertyLevels: Record<number, number>;
   mortgagedProperties: number[];
   pendingTrades: any[];
   tradeLog: any[];
   mustActOnProperty: number | null;
+  vacationCash: number; // Added
 }
 
 export default function App() {
@@ -279,6 +282,12 @@ export default function App() {
     newSocket.on("left_room", () => {
       setIsJoined(false);
       setRoom(null);
+    });
+
+    newSocket.on("room_disbanded", () => {
+      setIsJoined(false);
+      setRoom(null);
+      alert(language === "EN" ? "Room has been disbanded" : "تم إلغاء الغرفة");
     });
 
     return () => {
@@ -1328,25 +1337,25 @@ export default function App() {
               </form>
             </div>
 
-            {room?.players?.find(p => p.id === socket?.id)?.isHost ? (
-              <div className="space-y-4">
-                <button
-                  onClick={() => socket?.emit("add_bot", { roomId: room.id })}
-                  disabled={(room?.players?.length || 0) >= 6}
-                  className="w-full bg-white/10 text-white border border-white/10 font-bold py-4 rounded-xl hover:bg-white/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  <Users size={20} /> {t.addBot}
-                </button>
-                <button
-                  onClick={startGame}
-                  disabled={(room?.players?.length || 0) < 2 || !room?.players.every(p => p.isReady)}
-                  className="w-full bg-matte-blue-mid text-white font-bold py-4 rounded-xl hover:bg-matte-blue-light transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Play size={20} /> {t.startGame} {!room?.players.every(p => p.isReady) && `(${t.waiting})`}
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-4">
+            <div className="space-y-4">
+              {room?.players?.find(p => p.id === socket?.id)?.isHost ? (
+                <>
+                  <button
+                    onClick={() => socket?.emit("add_bot", { roomId: room.id })}
+                    disabled={(room?.players?.length || 0) >= 6}
+                    className="w-full bg-white/10 text-white border border-white/10 font-bold py-4 rounded-xl hover:bg-white/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <Users size={20} /> {t.addBot}
+                  </button>
+                  <button
+                    onClick={startGame}
+                    disabled={(room?.players?.length || 0) < 2 || !room?.players.every(p => p.isReady)}
+                    className="w-full bg-matte-blue-mid text-white font-bold py-4 rounded-xl hover:bg-matte-blue-light transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Play size={20} /> {t.startGame} {!room?.players.every(p => p.isReady) && `(${t.waiting})`}
+                  </button>
+                </>
+              ) : (
                 <button
                   onClick={() => socket?.emit("toggle_ready", { roomId: room.id })}
                   className={`w-full font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 ${room?.players.find(p => p.id === socket?.id)?.isReady
@@ -1356,8 +1365,15 @@ export default function App() {
                 >
                   {room?.players.find(p => p.id === socket?.id)?.isReady ? "Ready!" : "Click to Ready"}
                 </button>
-              </div>
-            )}
+              )}
+              
+              <button
+                onClick={() => socket?.emit("leave_room")}
+                className="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2"
+              >
+                <LogOut size={20} /> {language === "EN" ? "Leave Room" : "مغادرة الغرفة"}
+              </button>
+            </div>
           </div>
         </div>
       </div>

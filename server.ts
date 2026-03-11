@@ -1600,12 +1600,12 @@ async function startServer() {
           room.players.splice(playerIndex, 1);
           socket.leave(roomId);
 
-          if (room.players.length === 0) {
+          const onlyBotsLeft = room.players.length > 0 && room.players.every((p: any) => p.isBot);
+
+          if (room.players.length === 0 || wasHost || onlyBotsLeft) {
             rooms.delete(roomId);
+            io.to(roomId).emit("room_disbanded");
           } else {
-            if (wasHost) {
-              room.players[0].isHost = true;
-            }
             io.to(roomId).emit("room_update", room);
           }
         }
@@ -1620,8 +1620,11 @@ async function startServer() {
           const wasHost = room.players[playerIndex].isHost;
           room.players.splice(playerIndex, 1);
 
-          if (room.players.length === 0) {
+          const onlyBotsLeft = room.players.length > 0 && room.players.every((p: any) => p.isBot);
+
+          if (room.players.length === 0 || onlyBotsLeft) {
             rooms.delete(roomId);
+            io.to(roomId).emit("room_disbanded");
           } else {
             if (wasHost) {
               room.players[0].isHost = true;
