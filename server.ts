@@ -180,46 +180,51 @@ async function startServer() {
       socket.emit("rooms_list", activeRooms);
     });
 
-    socket.on("join_room", ({ roomId: rawRoomId, playerName, color, character, authId }) => {
+    socket.on("join_room", ({ roomId: rawRoomId, playerName, color, character, authId, isCreating }) => {
       const roomId = rawRoomId.toUpperCase();
-      socket.join(roomId);
 
       if (!rooms.has(roomId)) {
-        rooms.set(roomId, {
-          id: roomId,
-          players: [],
-          gameState: "LOBBY",
-          settings: {
-            startingMoney: 1500,
-            map: "giza_streets",
-            turnTimer: 60,
-            auction: true,
-            evenBuild: true,
-            allowTrading: true,
-            doubleRentFullSet: true,
-            vacationCash: false,
-            prisonNoRent: false,
-            mortgage: true,
-            randomizePlayerOrder: true
-          },
-          history: [],
-          tradeLog: [],
-          pendingTrades: [],
-          turn: 0,
-          dice: [1, 1],
-          hasRolled: false,
-          isDouble: false,
-          currentAuction: null,
-          mustActOnProperty: null,
-          propertyLevels: {},
-          mortgagedProperties: [],
-          board: [],
-          vacationCash: 0,
-          chanceDeck: shuffleArray(SURPRISE_CARDS),
-          treasureDeck: shuffleArray(TREASURE_CARDS)
-        });
+        if (isCreating) {
+          rooms.set(roomId, {
+            id: roomId,
+            players: [],
+            gameState: "LOBBY",
+            settings: {
+              startingMoney: 1500,
+              map: "giza_streets",
+              turnTimer: 60,
+              auction: true,
+              evenBuild: true,
+              allowTrading: true,
+              doubleRentFullSet: true,
+              vacationCash: false,
+              prisonNoRent: false,
+              mortgage: true,
+              randomizePlayerOrder: true
+            },
+            history: [],
+            tradeLog: [],
+            pendingTrades: [],
+            turn: 0,
+            dice: [1, 1],
+            hasRolled: false,
+            isDouble: false,
+            currentAuction: null,
+            mustActOnProperty: null,
+            propertyLevels: {},
+            mortgagedProperties: [],
+            board: [],
+            vacationCash: 0,
+            chanceDeck: shuffleArray(SURPRISE_CARDS),
+            treasureDeck: shuffleArray(TREASURE_CARDS)
+          });
+        } else {
+          socket.emit("error", "Room not found");
+          return;
+        }
       }
 
+      socket.join(roomId);
       const room = rooms.get(roomId);
       if (!room) return;
 

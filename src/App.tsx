@@ -378,6 +378,19 @@ export default function App() {
       alert(language === "EN" ? "Room has been disbanded" : "تم إلغاء الغرفة");
     });
 
+    newSocket.on("error", (msg: string) => {
+      console.error("Socket error:", msg);
+      if (msg === "Room not found") {
+        setIsJoined(false);
+        setRoom(null);
+        setRoomId("");
+        window.history.pushState(null, "", "/");
+        alert(language === "EN" ? "Room not found" : "الغرفة غير موجودة");
+      } else {
+        alert(msg);
+      }
+    });
+
     return () => {
       newSocket.disconnect();
     };
@@ -413,7 +426,11 @@ export default function App() {
 
   const joinRoom = () => {
     if (playerName && roomId && socket) {
-      socket.emit("join_room", { roomId, playerName });
+      socket.emit("join_room", { 
+        roomId, 
+        playerName, 
+        authId: userProfile?.id || sessionId 
+      });
       setIsJoined(true);
     }
   };
@@ -922,7 +939,11 @@ export default function App() {
     const targetRoomId = roomId || activeRooms.sort((a, b) => b.playersCount - a.playersCount)[0]?.id;
     if (targetRoomId) {
       if (socket) {
-        socket.emit("join_room", { roomId: targetRoomId, playerName, authId: userProfile?.id });
+        socket.emit("join_room", { 
+          roomId: targetRoomId, 
+          playerName, 
+          authId: userProfile?.id || sessionId 
+        });
         setIsJoined(true);
       }
     } else {
@@ -961,7 +982,12 @@ export default function App() {
                 <button
                   onClick={() => {
                     const newId = Math.random().toString(36).substring(2, 8).toUpperCase();
-                    socket?.emit("join_room", { roomId: newId, playerName, authId: userProfile?.id });
+                    socket?.emit("join_room", { 
+                      roomId: newId, 
+                      playerName, 
+                      authId: userProfile?.id || sessionId,
+                      isCreating: true 
+                    });
                     setIsJoined(true);
                   }}
                   className="px-8 py-3 rounded-full bg-matte-blue-mid text-white font-bold hover:shadow-[0_0_20px_rgba(135,206,235,0.4)] transition-all hover:-translate-y-1 border border-matte-blue-light/50"
