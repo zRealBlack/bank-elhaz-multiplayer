@@ -166,16 +166,18 @@ export default function App() {
   const [showAccount, setShowAccount] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [userToken, setUserToken] = useState<string | null>(null);
+  const [sessionId] = useState(() => {
+    const existing = localStorage.getItem("bank_elhaz_session_id");
+    if (existing) return existing;
+    const neu = Math.random().toString(36).substring(2, 15);
+    localStorage.setItem("bank_elhaz_session_id", neu);
+    return neu;
+  });
 
   useEffect(() => {
     const savedName = localStorage.getItem("bank_elhaz_player_name");
     if (savedName && !playerName) {
       setPlayerName(savedName);
-    }
-    
-    // Ensure persistent session ID
-    if (!localStorage.getItem("bank_elhaz_session_id")) {
-      localStorage.setItem("bank_elhaz_session_id", Math.random().toString(36).substring(2, 15));
     }
   }, []);
 
@@ -219,15 +221,14 @@ export default function App() {
     
     const urlPath = window.location.pathname.slice(1);
     const savedName = localStorage.getItem("bank_elhaz_player_name");
-    const sessionId = localStorage.getItem("bank_elhaz_session_id");
 
     if (urlPath && urlPath.length >= 4) {
       setRoomId(urlPath);
       setActiveInput("PLAY");
       
-      // Auto-join if name and session ID exist
+      // Auto-join if name exists
       if (savedName && !isJoined) {
-        console.log("Auto-joining room:", urlPath);
+        console.log("Auto-joining room:", urlPath, "as", savedName, "with session", sessionId);
         socket.emit("join_room", { 
           roomId: urlPath, 
           playerName: savedName, 
@@ -236,7 +237,7 @@ export default function App() {
         setIsJoined(true);
       }
     }
-  }, [socket, userProfile]);
+  }, [socket, userProfile, sessionId]);
 
   useEffect(() => {
     if (isJoined && room?.id) {

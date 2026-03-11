@@ -180,7 +180,8 @@ async function startServer() {
       socket.emit("rooms_list", activeRooms);
     });
 
-    socket.on("join_room", ({ roomId, playerName, color, character, authId }) => {
+    socket.on("join_room", ({ roomId: rawRoomId, playerName, color, character, authId }) => {
+      const roomId = rawRoomId.toUpperCase();
       socket.join(roomId);
 
       if (!rooms.has(roomId)) {
@@ -222,12 +223,14 @@ async function startServer() {
       const room = rooms.get(roomId);
       if (!room) return;
 
-      // Reconnection Logic: Match by authId OR name (to handle rapid refreshes where disconnect isn't processed yet)
+      // Reconnection Logic: Match by authId OR name
+      // Prioritize authId/SessionID match if available
       const existingPlayer = room.players.find((p: any) => 
         (authId && p.authId === authId) || (p.name === playerName)
       );
 
       if (existingPlayer) {
+        console.log(`[Room ${roomId}] Match found for ${playerName} (Auth: ${authId}). Re-linking slot.`);
         const timerKey = `${roomId}:${existingPlayer.name}`;
         if (disconnectTimers.has(timerKey)) {
           clearTimeout(disconnectTimers.get(timerKey)!);

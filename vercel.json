@@ -2,7 +2,16 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://<your-railway-url>/api/$1"
+      "destination": "https://bank-elhaz-multiplayer-production.up.railway.app/api/$1"
+    },
+    {
+      "source": "/socket.io/(.*)",
+      "destination": "https://bank-elhaz-multiplayer-production.up.railway.app/socket.io/$1"
+    },
+    {
+      "source": "/((?!api/|socket.io/).*)",
+      "destination": "/index.html"
     }
   ]
 }
+
