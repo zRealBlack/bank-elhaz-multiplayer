@@ -164,6 +164,7 @@ async function startServer() {
 
   // Game State Management
   const rooms = new Map<string, any>();
+  const disconnectTimers = new Map<string, NodeJS.Timeout>();
 
   io.on("connection", (socket) => {
     console.log("User connected:", socket.id);
@@ -219,6 +220,26 @@ async function startServer() {
       }
 
       const room = rooms.get(roomId);
+      if (!room) return;
+
+      // Reconnection Logic
+      const existingPlayer = room.players.find((p: any) => 
+        (authId && p.authId === authId) || (!authId && p.name === playerName && p.isDisconnected)
+      );
+
+      if (existingPlayer) {
+        const timerKey = `${roomId}:${existingPlayer.name}`;
+        if (disconnectTimers.has(timerKey)) {
+          clearTimeout(disconnectTimers.get(timerKey)!);
+          disconnectTimers.delete(timerKey);
+        }
+
+        existingPlayer.id = socket.id;
+        existingPlayer.isDisconnected = false;
+        io.to(roomId).emit("room_update", room);
+        return;
+      }
+
       if (room.gameState !== "LOBBY") {
         socket.emit("error", "Game already started");
         return;
@@ -253,6 +274,7 @@ async function startServer() {
         isHost: room.players.length === 0,
         isReady: room.players.length === 0, // Host is always ready
         isBot: false,
+        isDisconnected: false,
         doubleCount: 0,
         rentImmunity: false
       };
@@ -1617,19 +1639,62 @@ async function startServer() {
       rooms.forEach((room, roomId) => {
         const playerIndex = room.players.findIndex((p: any) => p.id === socket.id);
         if (playerIndex !== -1) {
-          const wasHost = room.players[playerIndex].isHost;
-          room.players.splice(playerIndex, 1);
+          const player = room.players[playerIndex];
+          const wasHost = player.isHost;
 
-          const onlyBotsLeft = room.players.length > 0 && room.players.every((p: any) => p.isBot);
+          if (room.gameState === "PLAYING") {
+            player.isDisconnected = true;
+            const timerKey = `${roomId}:${player.name}`;
 
-          if (room.players.length === 0 || onlyBotsLeft) {
-            rooms.delete(roomId);
-            io.to(roomId).emit("room_disbanded");
+            const timer = setTimeout(() => {
+              const currentRoom = rooms.get(roomId);
+              if (currentRoom) {
+                const p = currentRoom.players.find((cp: any) => cp.name === player.name);
+                if (p && p.isDisconnected) {
+                  p.isBankrupt = true;
+                  currentRoom.history.push({ 
+                    type: "bankrupt", 
+                    playerName: p.name, 
+                    playerId: p.id,
+                    reason: "disconnect_timeout"
+                  });
+
+                  // Clear properties
+                  p.properties.forEach((propId: number) => {
+                    currentRoom.propertyLevels[propId] = 0;
+                  });
+                  p.properties = [];
+
+                  const onlyBotsLeft = currentRoom.players.length > 0 && 
+                    currentRoom.players.every((p: any) => p.isBot || p.isBankrupt);
+
+                  if (onlyBotsLeft) {
+                    rooms.delete(roomId);
+                    io.to(roomId).emit("room_disbanded");
+                  } else {
+                    io.to(roomId).emit("room_update", currentRoom);
+                  }
+                }
+              }
+              disconnectTimers.delete(timerKey);
+            }, 3 * 60 * 1000); // 3 minutes
+
+            disconnectTimers.set(timerKey, timer);
+            io.to(roomId).emit("room_update", room);
           } else {
-            if (wasHost) {
+            // Lobby: immediate removal
+            room.players.splice(playerIndex, 1);
+            if (wasHost && room.players.length > 0) {
               room.players[0].isHost = true;
             }
-            io.to(roomId).emit("room_update", room);
+
+            const onlyBotsLeft = room.players.length > 0 && room.players.every((p: any) => p.isBot);
+            if (room.players.length === 0 || onlyBotsLeft) {
+              rooms.delete(roomId);
+              io.to(roomId).emit("room_disbanded");
+            } else {
+              io.to(roomId).emit("room_update", room);
+            }
           }
         }
       });

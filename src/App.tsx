@@ -77,6 +77,7 @@ interface Player {
   isHost: boolean;
   isReady: boolean;
   isBot: boolean;
+  isDisconnected: boolean; // Added
   doubleCount: number;
 }
 
@@ -140,6 +141,19 @@ export default function App() {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [userToken, setUserToken] = useState<string | null>(null);
 
+  useEffect(() => {
+    const savedName = localStorage.getItem("bank_elhaz_player_name");
+    if (savedName && !playerName) {
+      setPlayerName(savedName);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (playerName) {
+      localStorage.setItem("bank_elhaz_player_name", playerName);
+    }
+  }, [playerName]);
+
   const [chatMessage, setChatMessage] = useState("");
   const [chats, setChats] = useState<{ sender: string; color: string; message: string }[]>([]);
   const [isRolling, setIsRolling] = useState(false);
@@ -174,8 +188,15 @@ export default function App() {
     if (path && path.length >= 4) {
       setRoomId(path);
       setActiveInput("PLAY");
+      
+      // Auto-join if name exists
+      const savedName = localStorage.getItem("bank_elhaz_player_name");
+      if (savedName && socket && !isJoined) {
+        socket.emit("join_room", { roomId: path, playerName: savedName });
+        setIsJoined(true);
+      }
     }
-  }, []);
+  }, [socket]); // Run when socket is ready
 
   useEffect(() => {
     if (isJoined && room?.id) {
@@ -2289,6 +2310,7 @@ export default function App() {
                       <div className="text-left">
                         <div className="text-sm font-bold flex items-center gap-2">
                           {player.name}
+                          {player.isDisconnected && <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded uppercase ml-1 animate-pulse">{language === "EN" ? "(Disconnected)" : "(منقطع)"}</span>}
                           {player.id === socket?.id && <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded uppercase">{t.you}</span>}
                         </div>
                         <div className="text-[10px] text-gray-400 font-mono">${player.money}</div>
