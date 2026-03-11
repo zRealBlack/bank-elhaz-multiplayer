@@ -78,6 +78,7 @@ interface Player {
   isReady: boolean;
   isBot: boolean;
   isDisconnected: boolean; // Added
+  disconnectTime: number | null; // Added
   doubleCount: number;
 }
 
@@ -118,6 +119,31 @@ interface Room {
   mustActOnProperty: number | null;
   vacationCash: number; // Added
 }
+
+interface DisconnectTimerProps {
+  disconnectTime: number | null;
+}
+
+const DisconnectTimer: React.FC<DisconnectTimerProps> = ({ disconnectTime }) => {
+  const [timeLeft, setTimeLeft] = useState(0);
+
+  useEffect(() => {
+    if (!disconnectTime) return;
+    const update = () => {
+      const elapsed = Date.now() - disconnectTime;
+      const remaining = Math.max(0, (3 * 60 * 1000) - elapsed);
+      setTimeLeft(Math.floor(remaining / 1000));
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [disconnectTime]);
+
+  if (!disconnectTime) return null;
+  const mins = Math.floor(timeLeft / 60);
+  const secs = timeLeft % 60;
+  return <span className="ml-1 font-mono font-bold">({mins}:{secs.toString().padStart(2, '0')})</span>;
+};
 
 export default function App() {
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -204,10 +230,10 @@ export default function App() {
       if (window.location.pathname !== newUrl) {
         window.history.pushState(null, "", newUrl);
       }
-    } else if (!isJoined && window.location.pathname !== "/") {
+    } else if (!isJoined && window.location.pathname !== "/" && !roomId) {
       window.history.pushState(null, "", "/");
     }
-  }, [isJoined, room]);
+  }, [isJoined, room, roomId]);
 
   useEffect(() => {
     const backendUrl = import.meta.env.VITE_BACKEND_URL || undefined;
@@ -2301,16 +2327,27 @@ export default function App() {
                 <div key={player.id} className="relative">
                   <button
                     onClick={() => setSelectedPlayerId(selectedPlayerId === player.id ? null : player.id)}
-                    className={`w-full relative overflow-hidden flex items-center justify-between p-3 rounded-xl border transition-all ${room?.players[room?.turn]?.id === player.id ? "border-matte-blue-light/50 bg-matte-blue-light/10 shadow-[0_0_15px_rgba(48,58,72,0.1)]" : "border-white/5 bg-white/5 hover:bg-white/10"}`}
+                    className={`w-full relative overflow-hidden flex items-center justify-between p-3 rounded-xl border transition-all ${
+                      player.isDisconnected 
+                        ? "border-red-500/50 bg-red-500/10 shadow-[0_0_15px_rgba(239,68,68,0.1)]" 
+                        : room?.players[room?.turn]?.id === player.id 
+                          ? "border-matte-blue-light/50 bg-matte-blue-light/10 shadow-[0_0_15px_rgba(48,58,72,0.1)]" 
+                          : "border-white/5 bg-white/5 hover:bg-white/10"
+                    }`}
                   >
                     {/* Character Background */}
 
                     <div className="relative z-10 flex items-center gap-3">
                       <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: player.color }} />
                       <div className="text-left">
-                        <div className="text-sm font-bold flex items-center gap-2">
+                        <div className={`text-sm font-bold flex items-center gap-2 ${player.isDisconnected ? "text-red-400" : ""}`}>
                           {player.name}
-                          {player.isDisconnected && <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded uppercase ml-1 animate-pulse">{language === "EN" ? "(Disconnected)" : "(منقطع)"}</span>}
+                          {player.isDisconnected && (
+                            <span className="text-[10px] bg-red-500/20 px-1.5 py-0.5 rounded uppercase flex items-center">
+                              {language === "EN" ? "Offline" : "منقطع"}
+                              <DisconnectTimer disconnectTime={player.disconnectTime} />
+                            </span>
+                          )}
                           {player.id === socket?.id && <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded uppercase">{t.you}</span>}
                         </div>
                         <div className="text-[10px] text-gray-400 font-mono">${player.money}</div>

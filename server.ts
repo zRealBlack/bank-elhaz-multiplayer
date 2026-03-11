@@ -275,6 +275,7 @@ async function startServer() {
         isReady: room.players.length === 0, // Host is always ready
         isBot: false,
         isDisconnected: false,
+        disconnectTime: null,
         doubleCount: 0,
         rentImmunity: false
       };
@@ -1642,15 +1643,16 @@ async function startServer() {
           const player = room.players[playerIndex];
           const wasHost = player.isHost;
 
-          if (room.gameState === "PLAYING") {
-            player.isDisconnected = true;
-            const timerKey = `${roomId}:${player.name}`;
+          player.isDisconnected = true;
+          player.disconnectTime = Date.now();
+          const timerKey = `${roomId}:${player.name}`;
 
-            const timer = setTimeout(() => {
-              const currentRoom = rooms.get(roomId);
-              if (currentRoom) {
-                const p = currentRoom.players.find((cp: any) => cp.name === player.name);
-                if (p && p.isDisconnected) {
+          const timer = setTimeout(() => {
+            const currentRoom = rooms.get(roomId);
+            if (currentRoom) {
+              const p = currentRoom.players.find((cp: any) => cp.name === player.name);
+              if (p && p.isDisconnected) {
+                if (currentRoom.gameState === "PLAYING") {
                   p.isBankrupt = true;
                   currentRoom.history.push({ 
                     type: "bankrupt", 
@@ -1664,38 +1666,43 @@ async function startServer() {
                     currentRoom.propertyLevels[propId] = 0;
                   });
                   p.properties = [];
-
-                  const onlyBotsLeft = currentRoom.players.length > 0 && 
-                    currentRoom.players.every((p: any) => p.isBot || p.isBankrupt);
-
-                  if (onlyBotsLeft) {
-                    rooms.delete(roomId);
-                    io.to(roomId).emit("room_disbanded");
-                  } else {
-                    io.to(roomId).emit("room_update", currentRoom);
+                } else {
+                  // Lobby: remove player
+                  const idx = currentRoom.players.findIndex((cp: any) => cp.name === p.name);
+                  if (idx !== -1) {
+                    const wasH = currentRoom.players[idx].isHost;
+                    currentRoom.players.splice(idx, 1);
+                    if (wasH && currentRoom.players.length > 0) {
+                      currentRoom.players[0].isHost = true;
+                    }
                   }
                 }
+
+                // Check if room should be disbanded
+                const noHumansLeft = currentRoom.players.every((p: any) => 
+                  p.isBot || (p.isBankrupt && p.gameState === "PLAYING") || (p.isDisconnected && currentRoom.gameState === "LOBBY")
+                );
+                // Actually simpler: if no connected humans AND no humans in grace period anymore?
+                // The current humans who are NOT bots and NOT bankrupt.
+                const remainingRealPlayers = currentRoom.players.filter((p: any) => !p.isBot && !p.isBankrupt);
+                const anyNotDisconnected = remainingRealPlayers.some((p: any) => !p.isDisconnected);
+
+                if (remainingRealPlayers.length === 0 || (currentRoom.players.length > 0 && currentRoom.players.every((p: any) => p.isBot))) {
+                  rooms.delete(roomId);
+                  io.to(roomId).emit("room_disbanded");
+                } else {
+                  io.to(roomId).emit("room_update", currentRoom);
+                }
               }
-              disconnectTimers.delete(timerKey);
-            }, 3 * 60 * 1000); // 3 minutes
-
-            disconnectTimers.set(timerKey, timer);
-            io.to(roomId).emit("room_update", room);
-          } else {
-            // Lobby: immediate removal
-            room.players.splice(playerIndex, 1);
-            if (wasHost && room.players.length > 0) {
-              room.players[0].isHost = true;
             }
+            disconnectTimers.delete(timerKey);
+          }, 3 * 60 * 1000); // 3 minutes
 
-            const onlyBotsLeft = room.players.length > 0 && room.players.every((p: any) => p.isBot);
-            if (room.players.length === 0 || onlyBotsLeft) {
-              rooms.delete(roomId);
-              io.to(roomId).emit("room_disbanded");
-            } else {
-              io.to(roomId).emit("room_update", room);
-            }
-          }
+          disconnectTimers.set(timerKey, timer);
+
+          // If was host and there are other players, transfer host temporarily?
+          // For now, keep host status until timeout to avoid confusion if they refresh quickly.
+          io.to(roomId).emit("room_update", room);
         }
       });
     });
