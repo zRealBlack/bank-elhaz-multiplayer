@@ -217,17 +217,19 @@ export default function App() {
   useEffect(() => {
     if (!socket) return;
     
-    const path = window.location.pathname.slice(1);
-    if (path && path.length >= 4) {
-      setRoomId(path);
+    const urlPath = window.location.pathname.slice(1);
+    const savedName = localStorage.getItem("bank_elhaz_player_name");
+    const sessionId = localStorage.getItem("bank_elhaz_session_id");
+
+    if (urlPath && urlPath.length >= 4) {
+      setRoomId(urlPath);
       setActiveInput("PLAY");
       
-      const savedName = localStorage.getItem("bank_elhaz_player_name");
-      const sessionId = localStorage.getItem("bank_elhaz_session_id");
-      
+      // Auto-join if name and session ID exist
       if (savedName && !isJoined) {
+        console.log("Auto-joining room:", urlPath);
         socket.emit("join_room", { 
-          roomId: path, 
+          roomId: urlPath, 
           playerName: savedName, 
           authId: userProfile?.id || sessionId 
         });
@@ -242,8 +244,14 @@ export default function App() {
       if (window.location.pathname !== newUrl) {
         window.history.pushState(null, "", newUrl);
       }
-    } else if (!isJoined && window.location.pathname !== "/" && !roomId) {
-      window.history.pushState(null, "", "/");
+    } else if (!isJoined && window.location.pathname !== "/") {
+      // ONLY redirect to Home if we are NOT in the middle of a deep-link join
+      const urlPath = window.location.pathname.slice(1);
+      const isTryingToJoin = urlPath && urlPath.length >= 4;
+      
+      if (!isTryingToJoin && !roomId) {
+        window.history.pushState(null, "", "/");
+      }
     }
   }, [isJoined, room, roomId]);
 
