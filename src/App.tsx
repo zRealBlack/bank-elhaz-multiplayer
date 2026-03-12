@@ -2055,7 +2055,7 @@ export default function App() {
                     {/* Players on this tile */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
                       <div className="flex flex-wrap gap-1 justify-center">
-                        {room?.players?.filter(p => (visualPositions[p.id] ?? p.position) === index).map((p, i, arr) => {
+                        {room?.players?.filter(p => !p.isBankrupt && (visualPositions[p.id] ?? p.position) === index).map((p, i, arr) => {
                           const offset = (i - (arr.length - 1) / 2) * 8;
                           return (
                             <motion.div
@@ -2252,7 +2252,7 @@ export default function App() {
                     <Dice value={room?.dice[1] || 1} isRolling={isRolling} />
                   </div>
 
-                  {room?.players[room?.turn]?.id === socket?.id && !isRolling && (
+                  {room?.gameState === "PLAYING" && room?.players[room?.turn]?.id === socket?.id && !room?.players[room?.turn]?.isBankrupt && !isRolling && (
                     <div className="flex flex-col items-center gap-4">
                       {room.players[room.turn].inJail && (
                         <button
@@ -2330,7 +2330,7 @@ export default function App() {
                 </div>
 
                 {/* Property Actions Overlay */}
-                {room?.players[room?.turn]?.id === socket?.id && room.hasRolled && !isRolling && !room.currentAuction && (
+                {room?.gameState === "PLAYING" && room?.players[room?.turn]?.id === socket?.id && !room?.players[room?.turn]?.isBankrupt && room.hasRolled && !isRolling && !room.currentAuction && (
                   <div className="mt-4 flex gap-4">
                     {(() => {
                       const player = room?.players[room?.turn];
@@ -2383,9 +2383,11 @@ export default function App() {
                     className={`w-full relative overflow-hidden flex items-center justify-between p-3 rounded-xl border transition-all ${
                       player.isDisconnected 
                         ? "border-red-500/50 bg-red-500/10 shadow-[0_0_15px_rgba(239,68,68,0.1)]" 
-                        : room?.players[room?.turn]?.id === player.id 
-                          ? "border-matte-blue-light/50 bg-matte-blue-light/10 shadow-[0_0_15px_rgba(48,58,72,0.1)]" 
-                          : "border-white/5 bg-white/5 hover:bg-white/10"
+                        : player.isBankrupt
+                          ? "border-white/5 bg-black/20 opacity-60"
+                          : room?.players[room?.turn]?.id === player.id 
+                            ? "border-matte-blue-light/50 bg-matte-blue-light/10 shadow-[0_0_15px_rgba(48,58,72,0.1)]" 
+                            : "border-white/5 bg-white/5 hover:bg-white/10"
                     }`}
                   >
                     {/* Character Background */}
@@ -2393,8 +2395,13 @@ export default function App() {
                     <div className="relative z-10 flex items-center gap-3">
                       <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: player.color }} />
                       <div className="text-left">
-                        <div className={`text-sm font-bold flex items-center gap-2 ${player.isDisconnected ? "text-red-400" : ""}`}>
+                        <div className={`text-sm font-bold flex items-center gap-2 ${player.isDisconnected ? "text-red-400" : player.isBankrupt ? "text-gray-500" : ""}`}>
                           {player.name}
+                          {player.isBankrupt && (
+                            <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded uppercase opacity-50">
+                              {language === "EN" ? "Spectator" : "متفرج"}
+                            </span>
+                          )}
                           {player.isDisconnected && (
                             <span className="text-[10px] bg-red-500/20 px-1.5 py-0.5 rounded uppercase flex items-center">
                               {language === "EN" ? "Offline" : "منقطع"}

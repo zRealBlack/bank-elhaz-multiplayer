@@ -447,22 +447,48 @@ async function startServer() {
       }
     });
 
+    function performBankruptcy(room: any, player: any, roomId: string) {
+      if (!player || player.isBankrupt) return;
+      
+      console.log(`[BANK] Bankrupting ${player.name} (${player.id}) in room ${roomId}. ActivePlayers: ${room.players.filter((p: any) => !p.isBankrupt).length}`);
+      
+      player.isBankrupt = true;
+      player.money = 0;
+      
+      // Liquidate properties
+      if (player.properties) {
+        player.properties.forEach((propertyId: number) => {
+          delete room.propertyLevels[propertyId];
+          room.mortgagedProperties = room.mortgagedProperties.filter((id: number) => id !== propertyId);
+        });
+        player.properties = [];
+      }
+
+      room.mustActOnProperty = null;
+      room.currentAuction = null;
+      room.history.push({ type: "bankrupt", playerName: player.name, playerId: player.id });
+      
+      // Check if this was the last player
+      const activePlayers = room.players.filter((p: any) => !p.isBankrupt);
+      if (activePlayers.length <= 1) {
+        console.log(`[BANK] Only ${activePlayers.length} active players left. Ending game.`);
+        room.gameState = "GAME_OVER";
+        const winner = activePlayers[0] || room.players[0];
+        room.history.push({ type: "game_over", winnerName: winner.name, playerId: winner.id });
+        io.to(roomId).emit("room_update", room);
+      } else if (room.players[room.turn]?.id === player.id) {
+        console.log(`[BANK] Bankrupt player was active. Moving to next turn.`);
+        nextTurn(room, roomId);
+      } else {
+        io.to(roomId).emit("room_update", room);
+      }
+    }
+
     socket.on("bankrupt", ({ roomId }) => {
       const room = rooms.get(roomId);
       const player = room?.players.find((p: any) => p.id === socket.id);
       if (player && !player.isBankrupt) {
-        player.isBankrupt = true;
-        player.money = 0;
-        // Sell all properties
-        player.properties.forEach((propertyId: number) => {
-          // Return property to bank (remove owner, reset level)
-          delete room.propertyLevels[propertyId];
-          // If mortgaged, remove from mortgaged list
-          room.mortgagedProperties = room.mortgagedProperties.filter((id: number) => id !== propertyId);
-        });
-        player.properties = [];
-        room.history.push({ type: "bankrupt", playerName: player.name, playerId: player.id });
-        io.to(roomId).emit("room_update", room);
+        performBankruptcy(room, player, roomId);
       }
     });
 
@@ -920,12 +946,16 @@ async function startServer() {
     });
 
     function nextTurn(room: any, roomId: string) {
+      if (room.gameState !== "PLAYING") return;
+
       const currentPlayer = room.players[room.turn];
       if (currentPlayer) currentPlayer.doubleCount = 0;
 
       room.hasRolled = false;
       room.isDouble = false;
       room.mustActOnProperty = null;
+      
+      // Advance turn
       room.turn = (room.turn + 1) % room.players.length;
 
       // Skip bankrupt players
@@ -937,12 +967,15 @@ async function startServer() {
 
       // Check if game over
       const activePlayers = room.players.filter((p: any) => !p.isBankrupt);
+      console.log(`[TURN] Room ${roomId} next turn is index ${room.turn} (${room.players[room.turn].name}). Active players: ${activePlayers.length}`);
+      
       if (activePlayers.length <= 1) {
         room.gameState = "GAME_OVER";
-        room.history.push({ type: "game_over", winnerName: activePlayers[0]?.name || "محدش", playerId: activePlayers[0]?.id });
+        const winner = activePlayers[0] || room.players[0];
+        room.history.push({ type: "game_over", winnerName: winner.name, playerId: winner.id });
+        console.log(`[STATE] GAME OVER in ${roomId}. Winner: ${winner.name}`);
 
         // Distribute Coins to Winner
-        const winner = activePlayers[0];
         if (winner && winner.authId) {
           prisma.user.update({
             where: { id: winner.authId },
@@ -955,7 +988,7 @@ async function startServer() {
 
       // Check if next player is a bot
       const nextPlayer = room.players[room.turn];
-      if (nextPlayer.isBot) {
+      if (nextPlayer.isBot && room.gameState === "PLAYING") {
         handleBotTurn(room, roomId, nextPlayer);
       }
     }
@@ -1406,14 +1439,7 @@ async function startServer() {
         room.history.push({ type: "pay_tax", playerName: player.name, amount: taxAmount, playerId: player.id });
 
         if (player.money < 0) {
-          player.isBankrupt = true;
-          player.money = 0;
-          room.history.push({ type: "bankrupt", playerName: player.name, playerId: player.id });
-          player.properties.forEach((propId: number) => {
-            delete room.propertyLevels[propId];
-            room.mortgagedProperties = room.mortgagedProperties.filter((id: number) => id !== propId);
-          });
-          player.properties = [];
+          performBankruptcy(room, player, room.id);
         }
       } else if (tile.type === "VACATION") {
         if (room.settings.vacationCash && room.vacationCash > 0) {
@@ -1456,14 +1482,7 @@ async function startServer() {
             room.history.push({ type: "pay_rent", playerName: player.name, amount: rent, targetName: owner.name, playerId: player.id });
 
             if (player.money < 0) {
-              player.isBankrupt = true;
-              player.money = 0;
-              room.history.push({ type: "bankrupt", playerName: player.name, playerId: player.id });
-              // Return properties to bank
-              player.properties.forEach((propId: number) => {
-                room.propertyLevels[propId] = 0;
-              });
-              player.properties = [];
+              performBankruptcy(room, player, room.id);
             }
           }
         } else if (!owner) {
@@ -1586,13 +1605,7 @@ async function startServer() {
 
         // Bankruptcy check after applying card
         if (player.money < 0) {
-          player.isBankrupt = true;
-          player.money = 0;
-          room.history.push({ type: "bankrupt", playerName: player.name, playerId: player.id });
-          player.properties.forEach((propId: number) => {
-            room.propertyLevels[propId] = 0;
-          });
-          player.properties = [];
+          performBankruptcy(room, player, room.id);
         }
       }
     }
@@ -1671,19 +1684,7 @@ async function startServer() {
               const p = currentRoom.players.find((cp: any) => cp.name === player.name);
               if (p && p.isDisconnected) {
                 if (currentRoom.gameState === "PLAYING") {
-                  p.isBankrupt = true;
-                  currentRoom.history.push({ 
-                    type: "bankrupt", 
-                    playerName: p.name, 
-                    playerId: p.id,
-                    reason: "disconnect_timeout"
-                  });
-
-                  // Clear properties
-                  p.properties.forEach((propId: number) => {
-                    currentRoom.propertyLevels[propId] = 0;
-                  });
-                  p.properties = [];
+                  performBankruptcy(currentRoom, p, roomId);
                 } else {
                   // Lobby: remove player
                   const idx = currentRoom.players.findIndex((cp: any) => cp.name === p.name);
