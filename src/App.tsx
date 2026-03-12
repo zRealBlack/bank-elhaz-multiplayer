@@ -2445,35 +2445,36 @@ export default function App() {
                     {room?.players[room?.turn]?.id === player.id && (
                       <div className="relative z-10 w-2 h-2 rounded-full bg-matte-blue-light animate-pulse" />
                     )}
-                  </button>
 
-                  <AnimatePresence>
-                    {selectedPlayerId === player.id && player.id !== socket?.id && (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        className="absolute top-full mt-1 right-0 left-0 bg-[#1a1a1a] border border-white/10 rounded-xl p-2 shadow-2xl z-[100]"
-                      >
-                        <button
-                          onClick={() => {
-                            setTradeTarget(player);
-                            setIsTradeOpen(true);
-                            setSelectedPlayerId(null);
-                          }}
-                          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/5 rounded-lg text-xs transition-colors"
+                    {/* Disable interaction popup if current user is bankrupt */}
+                    <AnimatePresence>
+                      {selectedPlayerId === player.id && player.id !== socket?.id && !room?.players.find(p => p.id === socket?.id)?.isBankrupt && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          className="absolute top-full mt-1 right-0 left-0 bg-[#1a1a1a] border border-white/10 rounded-xl p-2 shadow-2xl z-[100]"
                         >
-                          <Handshake size={14} className="text-matte-blue-light" /> {t.trade}
-                        </button>
-                        <button className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/5 rounded-lg text-xs transition-colors text-gray-500">
-                          <ArrowUp size={14} /> {t.steal}
-                        </button>
-                        <button className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/5 rounded-lg text-xs transition-colors">
-                          <MessageSquare size={14} className="text-blue-400" /> {t.privateChat}
-                        </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                          <button
+                            onClick={() => {
+                              setTradeTarget(player);
+                              setIsTradeOpen(true);
+                              setSelectedPlayerId(null);
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/5 rounded-lg text-xs transition-colors"
+                          >
+                            <Handshake size={14} className="text-matte-blue-light" /> {t.trade}
+                          </button>
+                          <button className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/5 rounded-lg text-xs transition-colors text-gray-500">
+                            <ArrowUp size={14} /> {t.steal}
+                          </button>
+                          <button className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/5 rounded-lg text-xs transition-colors">
+                            <MessageSquare size={14} className="text-blue-400" /> {t.privateChat}
+                          </button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </button>
                 </div>
               ))}
             </div>
@@ -2686,7 +2687,7 @@ export default function App() {
                         </div>
                       </div>
 
-                      {trade.status === "PENDING" && (
+                      {trade.status === "PENDING" && !room?.players.find(p => p.id === socket?.id)?.isBankrupt && (
                         <div className="pt-4 border-t border-white/5 flex justify-end gap-3">
                           {trade.senderId === socket?.id ? (
                             <button
@@ -2840,18 +2841,20 @@ export default function App() {
       <AnimatePresence>
         {room?.players.find(p => p.id === socket?.id)?.isBankrupt && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="fixed inset-0 z-[200] bg-black/40 backdrop-blur-[2px] pointer-events-none flex items-center justify-center"
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] pointer-events-none"
           >
-            <div className="bg-matte-blue-deep/80 border border-white/10 px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-4 pointer-events-auto">
-              <Skull className="text-gray-500" size={24} />
+            <div className="bg-matte-blue-deep/90 backdrop-blur-md border border-matte-blue-light/20 px-8 py-4 rounded-3xl shadow-2xl flex items-center gap-4 pointer-events-auto border-b-4 border-b-matte-blue-light/40">
+              <div className="w-12 h-12 rounded-full bg-matte-blue-light/10 flex items-center justify-center">
+                <Skull className="text-matte-blue-light" size={24} />
+              </div>
               <div className="text-left">
-                <div className="text-sm font-black uppercase tracking-widest text-gray-400">
+                <div className="text-base font-black uppercase tracking-[0.2em] text-matte-blue-light">
                   {language === "EN" ? "Spectator Mode" : "وضع المتفرج"}
                 </div>
-                <div className="text-[10px] text-gray-500 font-bold">
-                  {language === "EN" ? "You are following the game" : "أنت الآن تتابع اللعبة فقط"}
+                <div className="text-xs text-gray-400 font-bold">
+                  {language === "EN" ? "You are observing this game" : "أنت تتابع اللعبة حالياً"}
                 </div>
               </div>
             </div>

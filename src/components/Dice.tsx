@@ -7,19 +7,22 @@ interface DiceProps {
 
 export const Dice = ({ value, isRolling }: DiceProps) => {
   const variants = {
-    rolling: {
-      rotateX: [0, 360, 720, 1080, 1440],
-      rotateY: [0, 180, 360, 540, 720],
-      rotateZ: [0, 90, 180, 270, 360],
-      scale: [1, 1.2, 1],
-      y: [0, -30, 0, -15, 0], // Wobble effect
-      transition: { duration: 1.5, ease: "easeInOut" }
+    rolling: (val: number) => {
+      const finalRot = getRotation(val);
+      return {
+        rotateX: [0, 360, 720, 1080, 1080 + finalRot.rotateX],
+        rotateY: [0, 180, 360, 540, 540 + finalRot.rotateY],
+        rotateZ: [0, 90, 180, 270, 360],
+        scale: [1, 1.2, 1],
+        y: [0, -30, 0, -15, 0],
+        transition: { duration: 1.5, ease: "easeInOut" as const }
+      };
     },
     idle: (val: number) => ({
       ...getRotation(val),
       scale: 1,
       y: 0,
-      transition: { type: "spring", stiffness: 260, damping: 20 }
+      transition: { type: "spring" as const, stiffness: 260, damping: 20 }
     })
   };
 
