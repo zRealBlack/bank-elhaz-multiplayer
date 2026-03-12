@@ -190,6 +190,7 @@ export default function App() {
   const [chatMessage, setChatMessage] = useState("");
   const [chats, setChats] = useState<{ sender: string; color: string; message: string }[]>([]);
   const [isRolling, setIsRolling] = useState(false);
+  const [diceValue, setDiceValue] = useState<[number, number]>([1, 1]);
   const [battleLog, setBattleLog] = useState<any[]>([]);
   const [visualPositions, setVisualPositions] = useState<Record<string, number>>({});
   const visualPositionsRef = useRef<Record<string, number>>({});
@@ -263,6 +264,7 @@ export default function App() {
 
     newSocket.on("room_update", (updatedRoom: Room) => {
       setRoom(updatedRoom);
+      if (updatedRoom.dice) setDiceValue(updatedRoom.dice);
       if (updatedRoom.history.length > 0) {
         setBattleLog(updatedRoom.history.slice(-5));
       }
@@ -273,11 +275,13 @@ export default function App() {
       setBattleLog([{ type: "game_started" }]);
     });
 
-    newSocket.on("dice_rolled", async ({ dice, player, room: updatedRoom }) => {
+    newSocket.on("dice_rolled", async ({ dice, player, room: updatedRoom, landingPosition }) => {
       setIsRolling(true);
+      if (dice) setDiceValue(dice);
 
       // Capture the old room state from ref
       const oldRoom = roomRef.current;
+      const finalPos = updatedRoom.players.find((p: any) => p.id === player)?.position ?? 0;
 
       // Update room state with new dice values immediately, but keep old positions
       const tempRoom = {
@@ -294,31 +298,45 @@ export default function App() {
 
       // Wait for dice animation (1.5s)
       await new Promise(resolve => setTimeout(resolve, 1500));
-      if ((window as any).finishRollingAndDraw) {
-        // Handled by the custom wrapper below if no jump
-      } else {
-        setIsRolling(false);
-      }
-
-      const currentPlayer = updatedRoom.players.find((p: any) => p.id === player);
-      if (!currentPlayer) return;
-
-      // Use oldRoom to find the start position
+      
       const startPos = visualPositionsRef.current[player] ?? oldRoom?.players.find((p: any) => p.id === player)?.position ?? 0;
-      const endPos = currentPlayer.position;
       const totalTiles = 48;
+      
+      // Stage 1: Move to landingPosition
       let currentPos = startPos;
+      const targetLanding = landingPosition ?? finalPos;
 
-      // Animate jumping through tiles
-      while (currentPos !== endPos) {
+      while (currentPos !== targetLanding) {
         currentPos = (currentPos + 1) % totalTiles;
         setVisualPositions(prev => ({ ...prev, [player]: currentPos }));
         await new Promise(resolve => setTimeout(resolve, 300));
       }
 
-      // Finally update the room state with the new positions
-      setRoom(updatedRoom);
+      // If we finished Stage 1 and it's a card/move effect, wait a bit
+      if (targetLanding !== finalPos) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Stage 2: Move to finalPos
+        currentPos = targetLanding;
+        while (currentPos !== finalPos) {
+          const lastLog = updatedRoom.history[updatedRoom.history.length - 1];
+          const isMoveBack = lastLog?.type?.includes("move_back");
+          
+          if (isMoveBack) {
+            currentPos = (currentPos - 1 + totalTiles) % totalTiles;
+          } else {
+            currentPos = (currentPos + 1) % totalTiles;
+          }
+          
+          setVisualPositions(prev => ({ ...prev, [player]: currentPos }));
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+      }
 
+      // Final sync
+      setRoom(updatedRoom);
+      setIsRolling(false);
+      
       if (updatedRoom.history.length > 0) {
         setBattleLog(updatedRoom.history.slice(-5));
       }
@@ -2248,8 +2266,8 @@ export default function App() {
 
                 <div className="flex flex-col items-center gap-6 z-10">
                   <div className="flex gap-12">
-                    <Dice value={room?.dice[0] || 1} isRolling={isRolling} />
-                    <Dice value={room?.dice[1] || 1} isRolling={isRolling} />
+                    <Dice value={diceValue[0]} isRolling={isRolling} />
+                    <Dice value={diceValue[1]} isRolling={isRolling} />
                   </div>
 
                   {room?.gameState === "PLAYING" && room?.players[room?.turn]?.id === socket?.id && !room?.players[room?.turn]?.isBankrupt && !isRolling && (
@@ -2309,14 +2327,15 @@ export default function App() {
                             {log.card && (
                               <button
                                 onClick={() => {
-                                  setDrawnCard({ roomId: room?.id || "", card: log.card, playerId: log.playerId, type: log.card.effect === "add_money" || log.card.effect === "sub_money" || log.card.effect === "pay_all" || log.card.effect === "property_tax" ? (log.card.amount > 0 ? "TREASURE" : "SURPRISE") : "SURPRISE" });
+                                  const isTreasure = log.type === "gain_money_card" || (log.card.amount > 0 && log.type === "treasure_card");
+                                  setDrawnCard({ roomId: room?.id || "", card: log.card, playerId: log.playerId, type: isTreasure ? "TREASURE" : "SURPRISE" });
                                   setTimeout(() => setDrawnCard(null), 3000);
                                 }}
                                 className="ml-2 text-[9px] font-black text-white px-2 py-0.5 rounded backdrop-blur-sm transition-all hover:scale-110 active:scale-95 border uppercase tracking-widest"
                                 style={{
-                                  backgroundColor: log.type === "gain_money_card" ? "rgba(201, 168, 76, 0.2)" : "rgba(168, 85, 247, 0.2)",
-                                  borderColor: log.type === "gain_money_card" ? "#C9A84C" : "#A855F7",
-                                  color: log.type === "gain_money_card" ? "#C9A84C" : "#A855F7"
+                                  backgroundColor: (log.type === "gain_money_card" || (log.card?.amount > 0)) ? "rgba(201, 168, 76, 0.2)" : "rgba(168, 85, 247, 0.2)",
+                                  borderColor: (log.type === "gain_money_card" || (log.card?.amount > 0)) ? "#C9A84C" : "#A855F7",
+                                  color: (log.type === "gain_money_card" || (log.card?.amount > 0)) ? "#C9A84C" : "#A855F7"
                                 }}
                               >
                                 VIEW
@@ -2812,6 +2831,28 @@ export default function App() {
                 {room.players.filter((p: any) => !p.isBankrupt && p.id !== socket?.id).length === 0 && (
                   <p className="text-gray-400 py-4">لا يوجد لاعبين آخرين للتبديل معهم.</p>
                 )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {room?.players.find(p => p.id === socket?.id)?.isBankrupt && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 z-[200] bg-black/40 backdrop-blur-[2px] pointer-events-none flex items-center justify-center"
+          >
+            <div className="bg-matte-blue-deep/80 border border-white/10 px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-4 pointer-events-auto">
+              <Skull className="text-gray-500" size={24} />
+              <div className="text-left">
+                <div className="text-sm font-black uppercase tracking-widest text-gray-400">
+                  {language === "EN" ? "Spectator Mode" : "وضع المتفرج"}
+                </div>
+                <div className="text-[10px] text-gray-500 font-bold">
+                  {language === "EN" ? "You are following the game" : "أنت الآن تتابع اللعبة فقط"}
+                </div>
               </div>
             </div>
           </motion.div>

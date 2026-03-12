@@ -677,6 +677,7 @@ async function startServer() {
                 dice: room.dice,
                 player: currentPlayer.id,
                 position: currentPlayer.position,
+                landingPosition: 12,
                 room: room,
                 isDouble: false
               });
@@ -693,7 +694,8 @@ async function startServer() {
 
           const total = d1 + d2;
           const oldPos = currentPlayer.position;
-          currentPlayer.position = (currentPlayer.position + total) % 48;
+          const landingPos = (currentPlayer.position + total) % 48;
+          currentPlayer.position = landingPos;
 
           // Pass START bonus
           if (currentPlayer.position < oldPos) {
@@ -711,6 +713,7 @@ async function startServer() {
             dice: room.dice,
             player: currentPlayer.id,
             position: currentPlayer.position,
+            landingPosition: landingPos,
             room: room,
             isDouble: room.isDouble
           });
@@ -1523,6 +1526,7 @@ async function startServer() {
         } else if (card.effect === "move_back") {
           player.position = (player.position - card.amount + 48) % 48;
           const newTile = BOARD_DATA[player.position];
+          room.history.push({ type: "move_back_card", playerName: player.name, amount: card.amount, card: card, playerId: player.id });
           if (newTile.type !== "SURPRISE" && newTile.type !== "TREASURE") {
             handleTileAction(room, player, newTile, 0);
           }
@@ -1530,22 +1534,26 @@ async function startServer() {
           player.position = 12;
           player.inJail = true;
           room.isDouble = false;
+          room.history.push({ type: "go_jail_card", playerName: player.name, card: card, playerId: player.id });
         } else if (card.effect === "go_to") {
           const targetTileStr = card.text.includes("Salvador") ? "Salvador" : "New York";
           const targetIndex = BOARD_DATA.findIndex(t => t.name.includes(targetTileStr));
           if (targetIndex !== -1) {
             if (player.position > targetIndex) player.money += 200; // pass go
             player.position = targetIndex;
+            room.history.push({ type: "go_to_card", playerName: player.name, card: card, playerId: player.id });
             handleTileAction(room, player, BOARD_DATA[targetIndex], 0);
           }
         } else if (card.effect === "go_start") {
           player.position = 0;
           player.money += 200;
+          room.history.push({ type: "go_start_card", playerName: player.name, card: card, playerId: player.id });
         } else if (card.effect === "move_forward") {
           const oldPos = player.position;
           player.position = (player.position + card.amount) % 48;
           if (player.position < oldPos) player.money += 200;
           const newTile = BOARD_DATA[player.position];
+          room.history.push({ type: "move_forward_card", playerName: player.name, amount: card.amount, card: card, playerId: player.id });
           if (newTile.type !== "SURPRISE" && newTile.type !== "TREASURE") {
             handleTileAction(room, player, newTile, 0);
           }
@@ -1556,6 +1564,7 @@ async function startServer() {
             if (BOARD_DATA[checkPos].type === "AIRPORT") {
               if (checkPos < player.position) player.money += 200; // pass go
               player.position = checkPos;
+              room.history.push({ type: "nearest_airport_card", playerName: player.name, card: card, playerId: player.id });
               handleTileAction(room, player, BOARD_DATA[checkPos], 0);
               found = true;
               break;
@@ -1571,12 +1580,14 @@ async function startServer() {
               const o = room.players.find((p: any) => p.properties.includes(checkPos));
               if (!o) {
                 player.position = checkPos;
+                room.history.push({ type: "back_to_unowned_card", playerName: player.name, card: card, playerId: player.id });
                 handleTileAction(room, player, BOARD_DATA[checkPos], 0);
                 break;
               }
             }
           }
         } else if (card.effect === "all_forward_1") {
+          room.history.push({ type: "all_forward_card", playerName: player.name, card: card, playerId: player.id });
           room.players.forEach((p: any) => {
             if (!p.isBankrupt) {
               const oldPos = p.position;
@@ -1590,6 +1601,7 @@ async function startServer() {
           });
         } else if (card.effect === "rent_immunity") {
           player.rentImmunity = true;
+          room.history.push({ type: "rent_immunity_card", playerName: player.name, card: card, playerId: player.id });
         } else if (card.effect === "swap_position") {
           if (player.isBot) {
             const otherPlayers = room.players.filter((p: any) => p.id !== player.id && !p.isBankrupt);
@@ -1598,6 +1610,7 @@ async function startServer() {
               const temp = player.position;
               player.position = target.position;
               target.position = temp;
+              room.history.push({ type: "swap_card", playerName: player.name, targetName: target.name, card: card, playerId: player.id });
               room.history.push({ type: "swap_position", playerName: player.name, targetName: target.name, playerId: player.id });
             }
           }
