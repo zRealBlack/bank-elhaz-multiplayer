@@ -2441,7 +2441,7 @@ export default function App() {
                 <div key={player.id} className="relative">
                   <button
                     onClick={() => setSelectedPlayerId(selectedPlayerId === player.id ? null : player.id)}
-                    className={`w-full relative overflow-hidden flex items-center justify-between p-3 rounded-xl border transition-all ${
+                    className={`w-full relative flex items-center justify-between p-3 rounded-xl border transition-all ${
                       player.isDisconnected 
                         ? "border-red-500/50 bg-red-500/10 shadow-[0_0_15px_rgba(239,68,68,0.1)]" 
                         : player.isBankrupt
@@ -2451,8 +2451,6 @@ export default function App() {
                             : "border-white/5 bg-white/5 hover:bg-white/10"
                     }`}
                   >
-                    {/* Character Background */}
-
                     <div className="relative z-10 flex items-center gap-3">
                       <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: player.color }} />
                       <div className="text-left">
@@ -2475,48 +2473,50 @@ export default function App() {
                       </div>
                     </div>
 
-                    {player.id === me?.id && !player.isBankrupt && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); socket?.emit("bankrupt", { roomId: room?.id }); }}
-                        className="relative z-20 flex items-center justify-center gap-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-2 py-1 rounded-lg transition-all text-[10px] font-bold"
-                      >
-                        <AlertTriangle size={12} /> {language === "EN" ? "Bankrupt" : "إفلاس"}
-                      </button>
-                    )}
-
-                    {room?.players[room?.turn]?.id === player.id && (
-                      <div className="relative z-10 w-2 h-2 rounded-full bg-matte-blue-light animate-pulse" />
-                    )}
-
-                    {/* Disable interaction popup if current user is not bankrupt */}
-                    <AnimatePresence>
-                      {selectedPlayerId === player.id && player.id !== me?.id && !me?.isBankrupt && (
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.95 }}
-                          className="absolute top-full mt-1 right-0 left-0 bg-[#1a1a1a] border border-white/10 rounded-xl p-2 shadow-2xl z-[100]"
+                    <div className="flex items-center gap-2">
+                      {player.id === me?.id && !player.isBankrupt && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); socket?.emit("bankrupt", { roomId: room?.id }); }}
+                          className="relative z-20 flex items-center justify-center gap-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-2 py-1 rounded-lg transition-all text-[10px] font-bold"
                         >
-                          <button
-                            onClick={() => {
-                              setTradeTarget(player);
-                              setIsTradeOpen(true);
-                              setSelectedPlayerId(null);
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/5 rounded-lg text-xs transition-colors"
-                          >
-                            <Handshake size={14} className="text-matte-blue-light" /> {t.trade}
-                          </button>
-                          <button className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/5 rounded-lg text-xs transition-colors text-gray-500">
-                            <ArrowUp size={14} /> {t.steal}
-                          </button>
-                          <button className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/5 rounded-lg text-xs transition-colors">
-                            <MessageSquare size={14} className="text-blue-400" /> {t.privateChat}
-                          </button>
-                        </motion.div>
+                          <AlertTriangle size={12} /> {language === "EN" ? "Bankrupt" : "إفلاس"}
+                        </button>
                       )}
-                    </AnimatePresence>
+
+                      {room?.players[room?.turn]?.id === player.id && (
+                        <div className="relative z-10 w-2 h-2 rounded-full bg-matte-blue-light animate-pulse" />
+                      )}
+                    </div>
                   </button>
+
+                  <AnimatePresence>
+                    {selectedPlayerId === player.id && player.id !== me?.id && !me?.isBankrupt && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                        className="absolute top-full mt-1 right-0 left-0 bg-[#1a1a1a] border border-white/10 rounded-xl p-2 shadow-2xl z-[100]"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          onClick={() => {
+                            setTradeTarget(player);
+                            setIsTradeOpen(true);
+                            setSelectedPlayerId(null);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/5 rounded-lg text-xs transition-colors"
+                        >
+                          <Handshake size={14} className="text-matte-blue-light" /> {t.trade}
+                        </button>
+                        <button className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/5 rounded-lg text-xs transition-colors text-gray-500">
+                          <ArrowUp size={14} /> {t.steal}
+                        </button>
+                        <button className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/5 rounded-lg text-xs transition-colors">
+                          <MessageSquare size={14} className="text-blue-400" /> {t.privateChat}
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               ))}
             </div>
