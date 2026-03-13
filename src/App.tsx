@@ -80,6 +80,7 @@ interface Player {
   isDisconnected: boolean; // Added
   disconnectTime: number | null; // Added
   doubleCount: number;
+  authId?: string; // Added for persistent identification
 }
 
 interface Room {
@@ -166,6 +167,13 @@ export default function App() {
   const [showAccount, setShowAccount] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [userToken, setUserToken] = useState<string | null>(null);
+
+  // Robust "me" identification that works across refreshes
+  const me = room?.players.find(p => 
+    (socket?.id && p.id === socket.id) || 
+    (userProfile?.id && p.authId === userProfile.id) || 
+    (playerName && p.name === playerName)
+  );
   const [sessionId] = useState(() => {
     const existing = localStorage.getItem("bank_elhaz_session_id");
     if (existing) return existing;
@@ -179,7 +187,41 @@ export default function App() {
     if (savedName && !playerName) {
       setPlayerName(savedName);
     }
+
+    // Persistent Google Login Restoration
+    const savedToken = localStorage.getItem("bank_elhaz_user_token");
+    if (savedToken && !userProfile) {
+      const restoreSession = async () => {
+        try {
+          const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+          const res = await fetch(`${backendUrl}/api/auth/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: savedToken })
+          });
+          const data = await res.json();
+          if (data.user) {
+            setUserProfile(data.user);
+            setUserToken(savedToken);
+          } else {
+            // If token is invalid/expired, clear it
+            localStorage.removeItem("bank_elhaz_user_token");
+          }
+        } catch (err) {
+          console.error("Failed to restore session:", err);
+        }
+      };
+      restoreSession();
+    }
   }, []);
+
+  useEffect(() => {
+    if (userToken) {
+      localStorage.setItem("bank_elhaz_user_token", userToken);
+    } else {
+      localStorage.removeItem("bank_elhaz_user_token");
+    }
+  }, [userToken]);
 
   useEffect(() => {
     if (playerName) {
@@ -1278,14 +1320,14 @@ export default function App() {
                     <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">{t.yourColor}</p>
                     <div className="flex flex-wrap gap-3">
                       {PLAYER_COLORS.map(color => {
-                        const isTaken = room.players.some(p => p.id !== socket?.id && p.color === color);
-                        const isMine = room.players.find(p => p.id === socket?.id)?.color === color;
+                        const isTaken = room.players.some(p => p.id !== me?.id && p.color === color);
+                        const isMine = me?.color === color;
 
                         return (
                           <button
                             key={color}
                             disabled={isTaken}
-                            onClick={() => socket?.emit("select_character", { roomId: room.id, color, character: room.players.find(p => p.id === socket?.id)?.character })}
+                            onClick={() => socket?.emit("select_character", { roomId: room.id, color, character: me?.character })}
                             className={`w-10 h-10 rounded-full border-2 transition-all ${isMine ? "border-white scale-110 shadow-lg" : "border-transparent hover:scale-105"} ${isTaken ? "opacity-20 cursor-not-allowed grayscale" : "cursor-pointer"}`}
                             style={{ backgroundColor: color }}
                           />
@@ -1476,7 +1518,7 @@ export default function App() {
             </div>
 
             <div className="space-y-4">
-              {room?.players?.find(p => p.id === socket?.id)?.isHost ? (
+              {me?.isHost ? (
                 <>
                   <button
                     onClick={() => socket?.emit("add_bot", { roomId: room.id })}
@@ -1496,12 +1538,12 @@ export default function App() {
               ) : (
                 <button
                   onClick={() => socket?.emit("toggle_ready", { roomId: room.id })}
-                  className={`w-full font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 ${room?.players.find(p => p.id === socket?.id)?.isReady
+                  className={`w-full font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 ${me?.isReady
                     ? "bg-green-500 hover:bg-green-400 text-white"
                     : "bg-white/10 hover:bg-white/20 text-white border border-white/10"
                     }`}
                 >
-                  {room?.players.find(p => p.id === socket?.id)?.isReady ? "Ready!" : "Click to Ready"}
+                  {me?.isReady ? "Ready!" : "Click to Ready"}
                 </button>
               )}
               
@@ -2270,7 +2312,7 @@ export default function App() {
                     <Dice value={diceValue[1]} isRolling={isRolling} />
                   </div>
 
-                  {room?.gameState === "PLAYING" && room?.players[room?.turn]?.id === socket?.id && !room?.players[room?.turn]?.isBankrupt && !isRolling && (
+                  {room?.gameState === "PLAYING" && room?.players[room?.turn]?.id === me?.id && !me?.isBankrupt && !isRolling && (
                     <div className="flex flex-col items-center gap-4">
                       {room.players[room.turn].inJail && (
                         <button
@@ -2349,7 +2391,7 @@ export default function App() {
                 </div>
 
                 {/* Property Actions Overlay */}
-                {room?.gameState === "PLAYING" && room?.players[room?.turn]?.id === socket?.id && !room?.players[room?.turn]?.isBankrupt && room.hasRolled && !isRolling && !room.currentAuction && (
+                {room?.gameState === "PLAYING" && room?.players[room?.turn]?.id === me?.id && !me?.isBankrupt && room.hasRolled && !isRolling && !room.currentAuction && (
                   <div className="mt-4 flex gap-4">
                     {(() => {
                       const player = room?.players[room?.turn];
@@ -2427,13 +2469,13 @@ export default function App() {
                               <DisconnectTimer disconnectTime={player.disconnectTime} />
                             </span>
                           )}
-                          {player.id === socket?.id && <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded uppercase">{t.you}</span>}
+                          {player.id === me?.id && <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded uppercase">{t.you}</span>}
                         </div>
                         <div className="text-[10px] text-gray-400 font-mono">${player.money}</div>
                       </div>
                     </div>
 
-                    {player.id === socket?.id && !player.isBankrupt && (
+                    {player.id === me?.id && !player.isBankrupt && (
                       <button
                         onClick={(e) => { e.stopPropagation(); socket?.emit("bankrupt", { roomId: room?.id }); }}
                         className="relative z-20 flex items-center justify-center gap-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-2 py-1 rounded-lg transition-all text-[10px] font-bold"
@@ -2446,9 +2488,9 @@ export default function App() {
                       <div className="relative z-10 w-2 h-2 rounded-full bg-matte-blue-light animate-pulse" />
                     )}
 
-                    {/* Disable interaction popup if current user is bankrupt */}
+                    {/* Disable interaction popup if current user is not bankrupt */}
                     <AnimatePresence>
-                      {selectedPlayerId === player.id && player.id !== socket?.id && !room?.players.find(p => p.id === socket?.id)?.isBankrupt && (
+                      {selectedPlayerId === player.id && player.id !== me?.id && !me?.isBankrupt && (
                         <motion.div
                           initial={{ opacity: 0, scale: 0.95 }}
                           animate={{ opacity: 1, scale: 1 }}
@@ -2495,7 +2537,7 @@ export default function App() {
                 </div>
                 <div className="max-h-64 overflow-y-auto space-y-3 custom-scrollbar pr-1">
                   {room.pendingTrades.map((trade: any) => {
-                    const isIncoming = trade.targetId === socket?.id;
+                    const isIncoming = trade.targetId === me?.id;
                     return (
                       <button
                         key={trade.id}
@@ -2687,16 +2729,16 @@ export default function App() {
                         </div>
                       </div>
 
-                      {trade.status === "PENDING" && !room?.players.find(p => p.id === socket?.id)?.isBankrupt && (
+                      {trade.status === "PENDING" && !me?.isBankrupt && (
                         <div className="pt-4 border-t border-white/5 flex justify-end gap-3">
-                          {trade.senderId === socket?.id ? (
+                          {trade.senderId === me?.id ? (
                             <button
                               onClick={() => socket?.emit("cancel_trade", { roomId: room.id, tradeId: trade.id })}
                               className="px-4 py-2 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-all text-sm font-bold"
                             >
                               إلغاء العرض
                             </button>
-                          ) : trade.targetId === socket?.id ? (
+                          ) : trade.targetId === me?.id ? (
                             <>
                               <button
                                 onClick={() => socket?.emit("decline_trade", { roomId: room.id, tradeId: trade.id })}
@@ -2738,7 +2780,7 @@ export default function App() {
             onSell={() => socket?.emit("sell_property", { roomId: room?.id, propertyId: selectedPropertyId })}
             onMortgage={() => socket?.emit("mortgage_property", { roomId: room?.id, propertyId: selectedPropertyId })}
             isMortgaged={room?.mortgagedProperties.includes(selectedPropertyId || -1)}
-            isCurrentPlayerOwner={room?.players.find(p => p.properties.includes(selectedPropertyId || -1))?.id === socket?.id}
+            isCurrentPlayerOwner={room?.players.find(p => p.properties.includes(selectedPropertyId || -1))?.id === me?.id}
             canUpgrade={(() => {
               if (selectedPropertyId === null) return false;
               const property = currentBoardData.find(p => p.id === selectedPropertyId);
@@ -2794,7 +2836,7 @@ export default function App() {
                 {drawnCard.card.text.split(" ").slice(0, -1).join(" ")}
               </p>
 
-              {drawnCard.playerId !== socket?.id && (
+              {drawnCard.playerId !== me?.id && (
                 <div className="mt-6 text-sm text-gray-400 z-10 font-medium">
                   {room?.players.find((p: any) => p.id === drawnCard.playerId)?.name} drew this...
                 </div>
@@ -2813,7 +2855,7 @@ export default function App() {
               </button>
               <h2 className="text-2xl font-black mb-6">اختر لاعب للتبديل معه 🔄</h2>
               <div className="space-y-3">
-                {room.players.filter((p: any) => !p.isBankrupt && p.id !== socket?.id).map((p: any) => (
+                {room.players.filter((p: any) => !p.isBankrupt && p.id !== me?.id).map((p: any) => (
                   <button
                     key={p.id}
                     onClick={() => {
@@ -2839,7 +2881,7 @@ export default function App() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {room?.players.find(p => p.id === socket?.id)?.isBankrupt && (
+        {me?.isBankrupt && (
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}

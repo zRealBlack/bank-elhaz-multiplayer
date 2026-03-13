@@ -37,6 +37,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, use
 
     const handleLogout = () => {
         googleLogout();
+        localStorage.removeItem("bank_elhaz_user_token");
         setUserProfile(null);
         setUserToken(null);
         setIsEditingName(false);
