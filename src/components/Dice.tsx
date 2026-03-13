@@ -10,9 +10,9 @@ export const Dice = ({ value, isRolling }: DiceProps) => {
     rolling: (val: number) => {
       const finalRot = getRotation(val);
       return {
-        rotateX: [0, 360, 720, 1080, 1080 + finalRot.rotateX],
-        rotateY: [0, 180, 360, 540, 540 + finalRot.rotateY],
-        rotateZ: [0, 90, 180, 270, 360],
+        rotateX: [null, 360, 720, 1080, 1080 + finalRot.rotateX],
+        rotateY: [null, 360, 720, 720 + finalRot.rotateY],
+        rotateZ: [null, 90, 180, 270, 360],
         scale: [1, 1.2, 1],
         y: [0, -30, 0, -15, 0],
         transition: { duration: 1.5, ease: "easeInOut" as const }
